@@ -174,6 +174,9 @@ If `store' is nil, a new vector will be created with the result values."))
 ;;; (@* "Types")
 ;;;
 
+;;; A vector of arbitrary length
+(deftype vec () `(simple-array scalar))
+
 (defvector vec2 ()
     (x y))
 
@@ -211,8 +214,19 @@ If `store' is nil, a new vector will be created with the result values."))
                  (unless (<= (abs (- a b)) epsilon)
                    (return nil))))))))
 
+(declaim (inline ensure-store))
+(defun ensure-store (template store)
+  (declare (type vec template) (type (or null vec) store))
+  (the vec (or store (make-sequence (type-of template) (length template)
+                                    :initial-element +scalar-zero+))))
+
 ;;; (@* "Vector Multiplication")
 ;;;
+
+(defun vec-mul (v s &optional store)
+  "Multiplicate a vector with a scalar."
+  (declare (type vec v) (type (or null vec) store))
+  (map-into (ensure-store v store) #'(lambda (a) (* a s)) v))
 
 (defvecfun vec2-mul (((x y) v) s)
     ((:documentation "Multiplicate a two dimensional vector with a scalar."))
@@ -228,6 +242,10 @@ If `store' is nil, a new vector will be created with the result values."))
 
 ;;; (@* "Vector Division")
 ;;;
+
+(defun vec-div (v s &optional store)
+  "Divide a vector through a scalar."
+  (vec-mul v (invert s) store))
 
 (defvecfun vec2-div (((x y) v) s)
     ((:documentation "Divide a two dimensional vector through a scalar."))
@@ -245,20 +263,29 @@ If `store' is nil, a new vector will be created with the result values."))
 ;;; (@* "Vector Negation")
 ;;;
 
+(defun vec-invert (v &optional store)
+  "Multiplicate a vector's elements with -1."
+  (vec-mul v +scalar-minus-one+ store))
+
 (defvecfun vec2-invert (((x y) v))
     ((:documentation "Invert the vector, multiply all elements with -1. "))
-  (vec2-mul* x y -1.0))
+  (vec2-mul* x y +scalar-minus-one+))
 
 (defvecfun vec3-invert (((x y z) v))
     ((:documentation "Invert the vector, multiply all elements with -1. "))
-  (vec3-mul* x y z -1.0))
+  (vec3-mul* x y z +scalar-minus-one+))
 
 (defvecfun vec4-invert (((x y z w) v))
     ((:documentation "Invert the vector, multiply all elements with -1. "))
-  (vec4-mul* x y z w -1.0))
+  (vec4-mul* x y z w +scalar-minus-one+))
 
 ;;; (@* "Vector Addition and Substraction")
 ;;;
+
+(defun vec-add (a b &optional store)
+  "Add two vectors component wise."
+  (declare (type vec a b) (type (or null vec) store))
+  (map-into (ensure-store a store) #'+ a b))
 
 (defvecfun vec2-add (((ax ay) a) ((bx by) b))
     ((:documentation "Add two vectors component wise."))
@@ -271,6 +298,11 @@ If `store' is nil, a new vector will be created with the result values."))
 (defvecfun vec4-add (((ax ay az aw) a) ((bx by bz bw) b))
     ((:documentation "Add two vectors component wise."))
   (values (+ ax bx) (+ ay by) (+ az bz) (+ aw bw)))
+
+(defun vec-sub (a b &optional store)
+  "Substract two vectors component wise."
+  (declare (type vec a b) (type (or null vec) store))
+  (map-into (ensure-store a store) #'- a b))
 
 (defvecfun vec2-sub (((ax ay) a) ((bx by) b))
     ((:documentation "Substract two vectors component wise."))
@@ -287,6 +319,17 @@ If `store' is nil, a new vector will be created with the result values."))
 
 ;;; (@* "Vector Dot Product")
 ;;;
+
+(declaim (inline vec-dot))
+(defun vec-dot (a b)
+  "Returns the dot product of the two vectors"
+  (declare (type vec a b)
+           (optimize (speed 3)))
+  (loop
+     for m of-type scalar across a
+     for n of-type scalar across b
+     sum (* m n) into r of-type scalar
+     finally (return r)))
 
 (defvecfun vec2-dot (((ax ay) a) ((bx by) b))
     ((:returning-scalar t)
@@ -317,6 +360,11 @@ If `store' is nil, a new vector will be created with the result values."))
 ;;; (@* "Vector Length")
 ;;;
 
+(defun vec-magnitude^2 (v)
+  "Returns the squared length of the vector."
+  (declare (type vec v))
+  (loop for a across v sum (square a)))
+
 (defvecfun vec2-magnitude^2 (((x y) v))
     ((:returning-scalar t)
      (:documentation "Returns the squared length of the vector."))
@@ -331,6 +379,10 @@ If `store' is nil, a new vector will be created with the result values."))
     ((:returning-scalar t)
      (:documentation "Returns the squared length of the vector."))
   (+ (square x) (square y) (square z) (square w)))
+
+(defun vec-magnitude (v)
+  "Returns the squared length of the vector."
+  (sqrt (vec-magnitude^2 v)))
 
 (defvecfun vec2-magnitude (((x y) v))
     ((:returning-scalar t)
@@ -347,8 +399,14 @@ If `store' is nil, a new vector will be created with the result values."))
      (:documentation "Returns the length of the vector."))
   (sqrt (vec4-magnitude^2* x y z w)))
 
+
 ;;; (@* "The Distance Between two Vectors")
 ;;;
+
+(defun vec-distance^2 (a b)
+  "Returns the squared distance between two vectors."
+  (declare (type vec a b))
+  (loop for m across a for n across b sum (square (- m n))))
 
 (defvecfun vec2-distance^2 (((ax ay) a) ((bx by) b))
     ((:returning-scalar t)
@@ -365,6 +423,11 @@ If `store' is nil, a new vector will be created with the result values."))
      (:documentation "Returns the squared distance between two vectors."))
   (+ (square (- ax bx)) (square (- ay by))
      (square (- az bz)) (square (- aw bw))))
+
+(defun vec-distance (a b)
+  "Returns the distance between two vectors."
+  (declare (type vec a b))
+  (sqrt (vec-distance^2 a b)))
 
 (defvecfun vec2-distance (((ax ay) a) ((bx by) b))
     ((:returning-scalar t)
@@ -384,6 +447,11 @@ If `store' is nil, a new vector will be created with the result values."))
 ;;; (@* "Vector Scaling")
 ;;;
 
+
+(defun vec-scale (v len &optional store)
+  "Scale the vector to a new magnitude."
+  (vec-mul v (/ len (vec-magnitude v)) store))
+
 (defvecfun vec2-scale (((x y) v) len)
     ((:documentation "Scale the vector to a new magnitude."))
   (vec2-mul* x y (/ len (vec2-magnitude* x y))))
@@ -399,6 +467,10 @@ If `store' is nil, a new vector will be created with the result values."))
 
 ;;; (@* "Vector Normalization")
 ;;;
+
+(defun vec-normalize (v &optional store)
+  "Normalize the vector, scale to magnitude one."
+  (vec-mul v (inverse-sqrt (vec-magnitude^2 v)) store))
 
 (defvecfun vec2-normalize (((x y) v))
     ((:documentation "Normalize the vector, scale to magnitude one."))
@@ -416,6 +488,10 @@ If `store' is nil, a new vector will be created with the result values."))
 ;;; (@* "Angle between two Vectors")
 ;;;
 
+(defun vec-angle (a b)
+  (declare (type vec a b))
+  (acos (/ (vec-dot a b) (vec-magnitude a) (vec-magnitude b))))
+
 (defvecfun vec2-angle (((ax ay) a) ((bx by) b))
     ((:returning-scalar t)
      (:documentation "Return the angle between two vectors in radians."))
@@ -431,4 +507,18 @@ If `store' is nil, a new vector will be created with the result values."))
                (vec3-dot* ax ay az bx by bz)))))
 
 
-;;; vector.lisp ends here
+;;; (@* "Vector Interpolation")
+;;;
+
+(defun vec-interpolate (a b alpha &optional store)
+  "Interpolate a vector from vector `a' to vector `b',
+depending on the interpolation factor alpha."
+  (let ((beta (invert alpha)))
+    (map-into (ensure-store a store)
+              #'(lambda (m n)
+                  (+ (* m beta)
+                     (* n alpha)))
+              a b)))
+
+
+ ;;; vector.lisp ends here

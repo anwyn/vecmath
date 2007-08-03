@@ -72,22 +72,60 @@
     (multiple-value-setq (ax ay az)
       (vec3->values v))))
 
+;;;; (@* "Matrix Transpose")
+
+(defvecfun mat2-transpose (((m00 m01 m10 m1) m))
+    ((:documentation "Transpose the matrix."))
+  (values m00 m10 m01 m11))
 
 (defvecfun mat3-transpose (((m00 m01 m02 m10 m11 m12 m20 m21 m22) m))
-    ((:documentation "Transpose the matrix"))
+    ((:documentation "Transpose the matrix."))
   (values m00 m10 m20 m01 m11 m21 m02 m12 m22))
 
-(defvecfun mat3-determinant (((m00 m01 m02 m10 m11 m12 m20 m21 m22) m))
+;;;; (@* "Calculate Matrix Determinant")
+
+(defvecfun mat2-determinant (((m00 m01 m10 m11) m))
     ((:returning-scalar t)
-     (:documentation "Calculate the determinant of the matrix"))
-  (+ m00 m10 m20 m01 m11 m21 m02 m12 m22))
+     (:documentation "Calculate the determinant of the matrix."))
+  (- (* m00 m11) (* m10 m01)))
+
+(defvecfun mat3-determinant (((m00 m01 m02
+                               m10 m11 m12
+                               m20 m21 m22) m))
+    ((:returning-scalar t)
+     (:documentation "Calculate the determinant of the matrix."))
+  ;; Calculate the determinant by multiplying the elements of the
+  ;; first row with the sub-determinants of the elements not on the
+  ;; same row or column.
+  (+ (- (* m00 (mat2-determinant* m11 m12 m21 m22))
+        (* m01 (mat2-determinant* m10 m12 m20 m22)))
+     (* m02 (mat2-determinant* m10 m11 m20 m21))))
+
+(defvecfun mat4-determinant (((m00 m01 m02 m03
+                               m10 m11 m12 m13
+                               m20 m21 m22 m23
+                               m30 m31 m32 m33) m))
+    ((:returning-scalar t)
+     (:documentation "Calculate the determinant of the matrix."))
+  ;; Calculate the determinant by multiplying the elements of the
+  ;; first row with the sub-determinants of the elements not on the
+  ;; same row or column.
+  (+ (- (* m00 (mat3-determinant* m11 m12 m13 m21 m22 m23 m31 m32 m33))
+        (* m01 (mat3-determinant* m10 m12 m13 m20 m22 m23 m30 m32 m33)))
+     (- (* m02 (mat3-determinant* m10 m11 m13 m20 m21 m23 m30 m31 m33))
+        (* m03 (mat3-determinant* m10 m11 m12 m20 m21 m22 m30 m31 m32)))))
+
+
+
+
+;;;; (@* "Matrix Inversion")
 
 (defvecfun mat3-invert (((m00 m01 m02 m10 m11 m12 m20 m21 m22) m))
     ((:documentation "Invert the matrix"))
   (values m00 m10 m20 m01 m11 m21 m02 m12 m22))
 
 (defvecfun mat3-negate (((m00 m01 m02 m10 m11 m12 m20 m21 m22) m))
-    ((:documentation "Negate the matrix"))
+    ((:documentation "Negate the matrix."))
   (values (- m00) (- m01) (- m02)
           (- m10) (- m11) (- m12)
           (- m20) (- m21) (- m22)))

@@ -19,8 +19,9 @@
 (deftype scalar () 'single-float)
 (defconstant +most-positive-scalar+ most-positive-single-float)
 (defconstant +scalar-epsilon+ single-float-epsilon)
-(defconstant +scalar-one+ 1.0)
 (defconstant +scalar-zero+ 0.0)
+(defconstant +scalar-one+ 1.0)
+(defconstant +scalar-minus-one+ -1.0)
 
 (defconstant +infinity+ +most-positive-scalar+)
 (defconstant +delta+ (the scalar (sqrt +scalar-epsilon+)))
