@@ -1,11 +1,12 @@
 ;;; quat.lisp --- Simple vector and matrix math for 3d graphics
+;;;                    _   
+;;;   __ _ _   _  __ _| |_ 
+;;;  / _` | | | |/ _` | __|
+;;; | (_| | |_| | (_| | |_ 
+;;;  \__, |\__,_|\__,_|\__|
+;;;     |_|                
 ;;;
-;;; Copyright (C) 2007 Ole Arndt
-;;; Author: Ole Arndt <ole@sugarshark.com>
-;;; Licence: BSD
-;;;
-;;; Commentary: 
-;;;
+;;; Copyright (c) 2007 Ole Arndt <ole@sugarshark.com>
 ;;;
 
 (in-package :vecmath)
@@ -13,13 +14,13 @@
 (defvector quat (vec4)
     ())
 
-(defun axis/angle->quat (v phi)
+(defun quat<-axis/angle (v phi)
   (let ((half-phi (/ 2 phi)))
     (with-vector-elements (vx vy vz) v
       (multiple-value-bind (x y z)
           (vec3-normalize* vx vy vz)
         (multiple-value-call #'quat
-          (vec3-mul* x y z (sin half-phi)) (cos half-phi))))))
+          (vec3-scale* x y z (sin half-phi)) (cos half-phi))))))
 
 (defun quat-identity! (q)
   (with-vector-elements (x y z w) q
@@ -34,9 +35,9 @@
 
 (defvecfun quat-scale (((x y z w) q) s)
     ((:documentation "Scale the quaternion."))
-  (vec4-mul* x y z w s))
+  (vec4-scale* x y z w s))
 
-(defvecfun quat-mul (((ax ay az aw) a) ((bx by bz bw) b) )
+(defvecfun quat-concat (((ax ay az aw) a) ((bx by bz bw) b) )
     ((:documentation "Multiplicate two quaternions."))
   (let ((s aw)
         (r bw))
@@ -59,18 +60,20 @@
 
 (defvecfun quat-normalize (((x y z w) q))
     ((:documentation "Normalize quaternion."))
-  (vec4-mul* x y z w (inverse-sqrt (quat-magnitude^2* x y z w))))
+  (vec4-scale* x y z w (inverse-sqrt (quat-magnitude^2* x y z w))))
 
 (defvecfun quat-axis (((x y z w) q))
     ((:return-type vec3)
-     (:documentation "Returns the axis of the rotation this 
-quaternion represents."))
-  (vec3-mul* x y z (inverse-sqrt (quat-magnitude^2* x y z w))))
+     (:omit-destructive-version t)
+     (:documentation "Returns the axis of the rotation this quaternion 
+represents."))
+  (vec3-scale* x y z (inverse-sqrt (quat-magnitude^2* x y z w))))
 
 (defvecfun quat-angle (((x y z w) q))
     ((:returning-scalar t)
-     (:documentation "Returns the angle of the rotation this 
-quaternion represents."))
+     (:omit-destructive-version t)
+     (:documentation "Returns the angle of the rotation this quaternion 
+represents."))
   (atan (vec3-magnitude* x y z) w))
 
 

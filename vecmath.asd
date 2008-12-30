@@ -1,7 +1,7 @@
 ;;; -*- lisp -*-
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  (unless (find-package "VECMATH.SYSTEM")
+  (unless (find-package '#:vecmath.system)
     (defpackage #:vecmath.system
       (:use :common-lisp :asdf))))
 
@@ -17,20 +17,34 @@
   :depends-on ()
   :in-order-to ((test-op (load-op #:vecmath-test)))
   :perform (test-op :after (op c)
-                    (funcall (intern (string '#:run!) '#:it.bese.FiveAM) :vecmath))
+                    (funcall (intern (string '#:vecmath-tests)
+                                     '#:vecmath-test)))
   :components ((:doc-file "README")
                (:static-file "vecmath.asd")
                (:module "src"
                         :components ((:file "packages")
-                                     (:file "vecmath" :depends-on ("packages"))
-                                     (:file "vector"  :depends-on ("vecmath"))
-                                     (:file "matrix"  :depends-on ("vector"))
-                                     (:file "quat"    :depends-on ("matrix"))))))
+                                     (:file "vecmath"      :depends-on ("packages"))
+                                     (:file "vector"       :depends-on ("vecmath"))
+                                     (:file "matrix"       :depends-on ("vector"))
+                                     (:file "quat"         :depends-on ("matrix"))
+                                     (:file "axis-angle"   :depends-on ("quat"))))))
 
 (defsystem :vecmath-test
   :components ((:module "test"
-                        :components ()))
-  :depends-on (:vecmath :fiveam))
+                        :components ((:file "suite")
+                                     (:file "vector-tests" :depends-on ("suite"))
+                                     (:file "matrix-tests" :depends-on ("suite"))
+                                     (:file "quat-tests"   :depends-on ("suite")))))
+  :depends-on (:vecmath :stefil))
 
 (defmethod operation-done-p ((o test-op) (c (eql (find-system :vecmath))))
   (values nil))
+
+;;;; * Introduction
+;;;;
+;;;; This library provides some vector mathematics operations targeted for 3D graphics.
+;;;;
+
+;;;;@include "src/packages.lisp"
+
+;;;;@include "test/suite.lisp"

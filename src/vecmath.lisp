@@ -21,12 +21,13 @@
 (defconstant +scalar-epsilon+ single-float-epsilon)
 (defconstant +scalar-zero+ 0.0)
 (defconstant +scalar-one+ 1.0)
+(defconstant +scalar-half+ 0.5)
 (defconstant +scalar-minus-one+ -1.0)
 
 (defconstant +infinity+ +most-positive-scalar+)
 (defconstant +delta+ (the scalar (sqrt +scalar-epsilon+)))
 
-;;; (@* "Simple Functions On Scalars")
+;;;; Simple Functions On Scalars
 ;;;
 
 ;;; We are going to define a lot of functions inline
@@ -37,28 +38,39 @@
      (defun ,name ,params
        ,@body)))
 
-(declaim (inline invert))
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (declaim (ftype (function (number) scalar) ensure-scalar))
+  (declaim (inline ensure-scalar))
+  (defun ensure-scalar (s)
+    (coerce s 'scalar)))
+
+(declaim (ftype (function (number) scalar) invert half inverse-sqrt square))
+(declaim (inline invert half inverse-sqrt lerp square))
+
 (defun invert (s)
   "Return one over scalar."
-  (declare (type scalar s)
-           (optimize (speed 3)))
   (the scalar (/ +scalar-one+ s)))
+(define-compiler-macro invert (&whole form s)
+  (cond ((and (constantp s) (not (typep s 'scalar)))
+         `(invert ,(ensure-scalar s)))
+        (t
+         `(,@form))))
 
-(declaim (inline inverse-sqrt))
+
+(defun half (s)
+  "Return half the value."
+  (the scalar (* +scalar-half+ s)))
+
 (defun inverse-sqrt (s)
   "Take the inverse square root of a scalar."
-  (declare (type scalar s)
-           (optimize (speed 3)))
   (invert (the scalar (sqrt (abs s)))))
 
-(declaim (inline lerp))
 (defun lerp (delta low high)
   "Linearly interpolate between low and high."
   (declare (type scalar delta low high)
            (optimize (speed 3)))
   (the scalar (+ low (* delta (- high low)))))
 
-(declaim (inline square))
 (defun square (s)
   (declare (type scalar s)
            (optimize (speed 3)))

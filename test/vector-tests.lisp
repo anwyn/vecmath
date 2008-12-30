@@ -50,7 +50,7 @@
                  (vec2 -1.0 -1.0)))
   (is (vec-equal (vec-invert (vec3 1.0 1.0 1.0))
                  (vec3 -1.0 -1.0 -1.0)))
-  (is (vec-equal (vec-div (vec4 1.0 1.0 1.0 1.0))
+  (is (vec-equal (vec-invert (vec4 1.0 1.0 1.0 1.0))
                  (vec4 -1.0 -1.0 -1.0 -1.0))))
 
 
