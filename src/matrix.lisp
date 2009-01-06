@@ -1,8 +1,8 @@
 ;;; matrix.lisp --- Simple vector and matrix math for 3d graphics
-;;;                  _        _      
+;;;                  _        _
 ;;;  _ __ ___   __ _| |_ _ __(_)_  __
 ;;; | '_ ` _ \ / _` | __| '__| \ \/ /
-;;; | | | | | | (_| | |_| |  | |>  < 
+;;; | | | | | | (_| | |_| |  | |>  <
 ;;; |_| |_| |_|\__,_|\__|_|  |_/_/\_\
 ;;;
 ;;; Copyright (C) 2007 Ole Arndt <ole@sugarshark.com>
@@ -52,16 +52,26 @@
     ((m00 1.0) m01
      m10 (m11 1.0)))
 
-(defvector mat3 ()
+(defvector mat32 ()
     ((m00 1.0) m01 m02
-     m10 (m11 1.0) m12
-     m20 m21 (m22 1.0)))
+     m10 (m11 1.0) m12))
 
-(defvector mat4 ()
+(defvector mat3 ()
+  ((m00 1.0) m01 m02
+   m10 (m11 1.0) m12
+   m20 m21 (m22 1.0)))
+
+(defvector mat43 ()
     ((m00 1.0) m01 m02 m03
      m10 (m11 1.0) m12 m13
-     m20 m21 (m22 1.0) m23
-     m30 m31 m32 (m33 1.0)))
+     m20 m21 (m22 1.0) m23))
+
+(defvector mat4 ()
+  ((m00 1.0) m01 m02 m03
+   m10 (m11 1.0) m12 m13
+   m20 m21 (m22 1.0) m23
+   m30 m31 m32 (m33 1.0)))
+
 
 
 ;; (defun mat3<-rows (a b c)
@@ -93,28 +103,81 @@
   (declare (type mat template) (type (or null mat) store))
   (the mat (or store (vec-copy template))))
 
-;;;; * Matrix Multiplication With a Scalar
+
+;;;; * Scale
+;;;;
+
+(defun make-mat4-from-scale (&key xscale yscale zscale (uniform-scale 1.0))
+  (let ((xs (or xscale uniform-scale))
+        (ys (or yscale uniform-scale))
+        (zs (or zscale uniform-scale)))
+    (make-mat4 :m00 xs :m11 ys :m22 zs)))
+
+(defun mat4<-scale (s)
+  "Construct a matrix with a scale"
+  (with-vector-elements (x y z) s
+    (mat4 x 0.0 0.0 0.0 0.0 y 0.0 0.0 0.0 0.0 z 0.0 0.0 0.0 0.0 1.0)))
+
+(defvecfun mat2-scale (((m00 m01 m10 m11) m) s)
+  ((:documentation "Add a scale component to the 2D transformation."))
+  (mat2-mul* m00 m01 m10 m11
+             s   0.0 0.0 s))
+
+(defvecfun mat32-scale (((m00 m01 m02 m10 m11 m12 m20 m21 m22) m) s)
+  ((:documentation "Add a uniform scale component to the 2D transformation."))
+    (mat3-mul* m00 m01 m02 m10 m11 m12
+               s   0.0 0.0 0.0 s   0.0))
+
+(defvecfun mat3-scale (((m00 m01 m02 m10 m11 m12 m20 m21 m22) m) s)
+    ((:documentation "Add a uniform scale component to the 3D transformation."))
+    (mat3-mul* m00 m01 m02 m10 m11 m12 m20 m21 m22
+               s   0.0 0.0 0.0 s   0.0 0.0 0.0 s))
+
+(defvecfun mat4-scale (((m00 m01 m02 m03 m10 m11 m12 m13 m20 m21 m22 m23 m30 m31 m32 m33) m) s)
+    ((:documentation "Add a uniform scale component to the 3D transformation."))
+  (mat4-mul* m00 m01 m02 m03 m10 m11 m12 m13 m20 m21 m22 m23 m30 m31 m32 m33
+             s   0.0 0.0 0.0 0.0 s   0.0 0.0 0.0 0.0 s   0.0 0.0 0.0 0.0 1.0))
+
+;;;; * Rotation
+;;;;
+
+
+
+;;;; * Translation
+;;;;
+
+(defun mat4<-translation (v)
+  "Construct a matrix with a translation."
+  (with-vector-elements (x y z) v
+    (mat4 1.0 0.0 0.0 x
+          0.0 1.0 0.0 y
+          0.0 0.0 1.0 z
+          0.0 0.0 0.0 1.0)))
+
+(defvecfun mat4-translate (((m00 m01 m02 m03 m10 m11 m12 m13 m20 m21 m22 m23 m30 m31 m32 m33) m) x y z)
+  ((:documentation "Add a translation component to the 3D transformation."))
+  (mat4-mul* m00 m01 m02 m03 m10 m11 m12 m13 m20 m21 m22 m23 m30 m31 m32 m33
+             x   0.0 0.0 0.0 0.0 y   0.0 0.0 0.0 0.0 z   0.0 0.0 0.0 0.0 1.0))
+
+;;;; * Matrix Multiplication with a Scalar
 ;;;
 
-(defun mat-scale (m s &optional store)
+(defun mat-scalar-mul (m s &optional store)
   "Multiplicate a matrix with a scalar."
   (declare (type mat m) (type scalar s) (type (or null mat) store))
   (map-into (mat-ensure-store m store) #'(lambda (a) (* a s)) m))
 
-(defvecfun mat2-scale (((m00 m01 m10 m11) m) s)
+(defvecfun mat2-scalar-mul (((m00 m01 m10 m11) m) s)
     ((:documentation "Multiplicate a two dimensional matrix with a scalar."))
   (values (* m00 s) (* m01 s) (* m10 s) (* m11 s)))
 
-(defvecfun mat3-scale (((m00 m01 m02 m10 m11 m12 m20 m21 m22) m) s)
+(defvecfun mat3-scalar-mul (((m00 m01 m02 m10 m11 m12 m20 m21 m22) m) s)
     ((:documentation "Multiplicate a three dimensional matrix with a scalar."))
   (values (* m00 s) (* m01 s) (* m02 s)
           (* m10 s) (* m11 s) (* m12 s)
           (* m20 s) (* m21 s) (* m22 s)))
 
-(defvecfun mat4-scale (((m00 m01 m02 m03
-                       m10 m11 m12 m13
-                       m20 m21 m22 m23
-                       m30 m31 m32 m33) m) s)
+(defvecfun mat4-scalar-mul (((m00 m01 m02 m03 m10 m11 m12 m13 m20 m21 m22 m23 m30 m31 m32 m33) m) s)
     ((:documentation "Multiplicate a matrix in homogenous space with a scalar."))
   (values (* m00 s) (* m01 s) (* m02 s) (* m03 s)
           (* m10 s) (* m11 s) (* m12 s) (* m13 s)
@@ -135,7 +198,7 @@
     (loop for i from 0 below rows do
          (loop for j from 0 below rows do
               (setf (row-major-aref dst (+ (* i rows) j))
-                    (loop for k from 0 below rows 
+                    (loop for k from 0 below rows
                        sum (* (row-major-aref m (+ (* i rows) k))
                               (row-major-aref n (+ (* k rows) j))))))
          finally (return dst))))
@@ -160,18 +223,11 @@
           (+ (* m20 n01) (* m21 n11) (* m22 n21))
           (+ (* m20 n02) (* m21 n12) (* m22 n22))))
 
-(defvecfun mat3-tmul (((m00 m01 m02 m10 m11 m12 m20 m21 m22) m)
-                      ((n00 n01 n02 n10 n11 n12 n20 n21 n22) n))
+(defvecfun mat3-mul-lt (((m00 m01 m02 m10 m11 m12 m20 m21 m22) m)
+                        ((n00 n01 n02 n10 n11 n12 n20 n21 n22) n))
     ((:documentation "Concatenate two matrices with the left one transposed."))
-  (values (+ (* m00 n00) (* m10 n10) (* m20 n20))
-          (+ (* m00 n01) (* m10 n11) (* m20 n21))
-          (+ (* m00 n02) (* m10 n12) (* m20 n22))
-          (+ (* m01 n00) (* m11 n10) (* m21 n20))
-          (+ (* m01 n01) (* m11 n11) (* m21 n21))
-          (+ (* m01 n02) (* m11 n12) (* m21 n22))
-          (+ (* m02 n00) (* m12 n10) (* m22 n20))
-          (+ (* m02 n01) (* m12 n11) (* m22 n21))
-          (+ (* m02 n02) (* m12 n12) (* m22 n22))))
+  (mat3-mul* m00 m10 m20 m01 m11 m21 m02 m12 m22
+             n00 n01 n02 n10 n11 n12 n20 n21 n22))
 
 (defvecfun mat4-mul (((m00 m01 m02 m03 m10 m11 m12 m13
                            m20 m21 m22 m23 m30 m31 m32 m33) m)
@@ -195,7 +251,16 @@
           (+ (* m30 n02) (* m31 n12) (* m32 n22) (* m33 n32))
           (+ (* m30 n03) (* m31 n13) (* m32 n23) (* m33 n33))))
 
- ;;;;; * Matrix Transpose
+(defvecfun mat4-mul-lt (((m00 m01 m02 m03 m10 m11 m12 m13
+                              m20 m21 m22 m23 m30 m31 m32 m33) m)
+                        ((n00 n01 n02 n03 n10 n11 n12 n13
+                              n20 n21 n22 n23 n30 n31 n32 n33) n))
+    ((:documentation "Concatenate two matrices with the left one transposed."))
+  (mat4-mul* m00 m10 m20 m30 m01 m11 m21 m31 m20 m12 m22 m32 m03 m13 m23 m33
+             n00 n01 n02 n03 n10 n11 n12 n13 n20 n21 n22 n23 n30 n31 n32 n33))
+
+
+;;;;; * Matrix Transpose
 
 (defun mat-transpose (m &optional store)
   "Transpose the matrix, rows become columns and vice versa."
@@ -259,24 +324,27 @@
   (let ((det (mat3-determinant* m00 m01 m02 m10 m11 m12 m20 m21 m22)))
     (if (= +scalar-zero+ det)
         (values m00 m01 m02 m10 m11 m12 m20 m21 m22)
-        (mat3-scale* (- (* m11 m22) (* m12 m21))
-                     (- (* m02 m21) (* m01 m22))
-                     (- (* m01 m12) (* m02 m11))
-                     (- (* m12 m20) (* m10 m22))
-                     (- (* m00 m22) (* m02 m20))
-                     (- (* m02 m10) (* m00 m12))
-                     (- (* m10 m21) (* m11 m20))
-                     (- (* m01 m20) (* m00 m21))
-                     (- (* m00 m11) (* m01 m10))
-                     (invert det)))))
+        (mat3-scalar-mul* (- (* m11 m22) (* m12 m21))
+                          (- (* m02 m21) (* m01 m22))
+                          (- (* m01 m12) (* m02 m11))
+                          (- (* m12 m20) (* m10 m22))
+                          (- (* m00 m22) (* m02 m20))
+                          (- (* m02 m10) (* m00 m12))
+                          (- (* m10 m21) (* m11 m20))
+                          (- (* m01 m20) (* m00 m21))
+                          (- (* m00 m11) (* m01 m10))
+                          (invert det)))))
 
 
 ;;;; * Matrix Negation
 ;;;
 
+(defun mat-negate (m &optional store)
+  (map-into (mat-ensure-store store) #'negate m))
+
 (defvecfun mat2-negate (((m00 m01 m10 m11) m))
     ((:documentation "Negate the matrix."))
-  (values (- m00) (- m01) 
+  (values (- m00) (- m01)
           (- m10) (- m11)))
 
 (defvecfun mat3-negate (((m00 m01 m02 m10 m11 m12 m20 m21 m22) m))
@@ -303,7 +371,7 @@
         (dst (vec-ensure-store v store)))
     (loop for i from 0 below rows do
          (setf (row-major-aref dst i)
-               (loop for j from 0 below rows 
+               (loop for j from 0 below rows
                   sum (* (row-major-aref m (+ (* i rows) j))
                          (row-major-aref v j))))
          finally (return dst))))
@@ -333,8 +401,9 @@
     ((:type vec3)
      (:return-type mat3)
      (:omit-destructive-version t)
-     (:documentation "Construct a rotation matrix from an axis and an angle. 
-Assume the axis port is already normalized."))
+     (:documentation "Construct a rotation matrix from an axis and an angle.
+Assume the axis vector is already normalized."))
+  (declare (type (single-float 0.0 6.3) angle))
   (let* ((cos (cos angle))
          (sin (sin angle))
          (omc (invert cos))
@@ -356,6 +425,37 @@ Assume the axis port is already normalized."))
   (multiple-value-bind (a b c)
       (vec3-normalize* x y z)
     (mat3<-normalized-axis/angle* a b c angle)))
+
+
+(defvecfun mat4<-normalized-axis/angle (((x y z) axis) angle)
+    ((:type vec3)
+     (:return-type mat4)
+     (:omit-destructive-version t)
+     (:documentation "Construct a rotation matrix from an axis and an angle.
+Assume the axis vector is already normalized."))
+  (declare (type (single-float 0.0 6.3) angle))
+  (let* ((cos (cos angle))
+         (sin (sin angle))
+         (omc (invert cos))
+         (xy (* x y omc))
+         (xz (* x z omc))
+         (yz (* y z omc))
+         (xsin (* x sin))
+         (ysin (* y sin))
+         (zsin (* z sin)))
+      (values (+ cos (* x x omc)) (- xy zsin) (+ xz ysin)
+              (+ xy zsin) (+ cos (* y y omc)) (- yz xsin)
+              (- xz ysin) (+ yz xsin) (+ cos (* z z omc))
+              0.0 0.0 0.0 1.0)))
+
+(defvecfun mat4<-axis/angle (((x y z) axis) angle)
+    ((:type vec3)
+     (:return-type mat4)
+     (:omit-destructive-version t)
+     (:documentation "Construct a rotation matrix from an axis and an angle"))
+  (multiple-value-bind (a b c)
+      (vec3-normalize* x y z)
+    (mat4<-normalized-axis/angle* a b c angle)))
 
 
 ;;; matrix.lisp ends here
