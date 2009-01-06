@@ -1,10 +1,10 @@
 ;;; quat.lisp --- Simple vector and matrix math for 3d graphics
-;;;                    _   
-;;;   __ _ _   _  __ _| |_ 
+;;;                    _
+;;;   __ _ _   _  __ _| |_
 ;;;  / _` | | | |/ _` | __|
-;;; | (_| | |_| | (_| | |_ 
+;;; | (_| | |_| | (_| | |_
 ;;;  \__, |\__,_|\__,_|\__|
-;;;     |_|                
+;;;     |_|
 ;;;
 ;;; Copyright (c) 2007 Ole Arndt <ole@sugarshark.com>
 ;;;
@@ -48,7 +48,7 @@
               (+ z (* s bz) (* r az))
               (- (* s r) (vec3-dot* ax ay az bx by bz))))))
 
-(defvecfun quat-magnitude^2 (((x y z w) q))
+(defvecfun quat-magnitude-squared (((x y z w) q))
     ((:returning-scalar t)
      (:documentation "Returns the squared length of the quaternion."))
   (+ (square x) (square y) (square z) (square w)))
@@ -56,23 +56,23 @@
 (defvecfun quat-magnitude (((x y z w) q))
     ((:returning-scalar t)
      (:documentation "Returns the length of the quaternion."))
-  (sqrt (quat-magnitude^2* x y z w)))
+  (sqrt (quat-magnitude-squared* x y z w)))
 
 (defvecfun quat-normalize (((x y z w) q))
     ((:documentation "Normalize quaternion."))
-  (vec4-scale* x y z w (inverse-sqrt (quat-magnitude^2* x y z w))))
+  (vec4-scale* x y z w (inverse-sqrt (quat-magnitude-squared* x y z w))))
 
 (defvecfun quat-axis (((x y z w) q))
     ((:return-type vec3)
      (:omit-destructive-version t)
-     (:documentation "Returns the axis of the rotation this quaternion 
+     (:documentation "Returns the axis of the rotation this quaternion
 represents."))
-  (vec3-scale* x y z (inverse-sqrt (quat-magnitude^2* x y z w))))
+  (vec3-scale* x y z (inverse-sqrt (quat-magnitude-squared* x y z w))))
 
 (defvecfun quat-angle (((x y z w) q))
     ((:returning-scalar t)
      (:omit-destructive-version t)
-     (:documentation "Returns the angle of the rotation this quaternion 
+     (:documentation "Returns the angle of the rotation this quaternion
 represents."))
   (atan (vec3-magnitude* x y z) w))
 

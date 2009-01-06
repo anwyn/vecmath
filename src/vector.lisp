@@ -1,12 +1,12 @@
 ;;; vector.lisp --- Simple 2d and 3d vector and matrix math library.
-;;;                 _             
-;;; __   _____  ___| |_ ___  _ __ 
+;;;                 _
+;;; __   _____  ___| |_ ___  _ __
 ;;; \ \ / / _ \/ __| __/ _ \| '__|
-;;;  \ V /  __/ (__| || (_) | |   
-;;;   \_/ \___|\___|\__\___/|_|   
-;;;                              
+;;;  \ V /  __/ (__| || (_) | |
+;;;   \_/ \___|\___|\__\___/|_|
+;;;
 ;;; Copyright (C) 2007 Ole Arndt <ole@sugarshark.com>
-;;; 
+;;;
 
 (in-package :vecmath)
 
@@ -164,22 +164,22 @@ Multiple values version. Takes individual vector components as arguments
 and returns the result as multiple values.")
                   (declare (type ,element-type ,@scalar-args) ,*optimization*)
                   ,@body))
-              
+
               ;; define the normal version
               (when inline-p
                 `((declaim (inline ,nname))))
 
-;;;               `((declaim (ftype (function ,(append
-;;;                                             (mapcar (lambda (v)
-;;;                                                       (if (consp v)
-;;;                                                           (list 'vec (length (car v)) 'scalar)
-;;;                                                           'scalar))
-;;;                                                     args)
-;;;                                             (when returning-vector
-;;;                                               `(&optional ,return-type)))
-;;;                                           ,(if returning-vector return-type 'scalar))
-;;;                                 ,nname)))
-              
+              `((declaim (ftype (function ,(append
+                                            (mapcar (lambda (v)
+                                                      (if (consp v)
+                                                          (list 'vec (length (car v)) 'scalar)
+                                                          'scalar))
+                                                    args)
+                                            (when returning-vector
+                                              `(&optional ,return-type)))
+                                          ,(if returning-vector return-type 'scalar))
+                                ,nname)))
+
               `((defun ,nname ,(append vectors-and-scalars (when returning-vector
                                                              `(&optional store)))
                   ,(concatenate 'string doc
@@ -209,10 +209,10 @@ If `store' is nil, a new vector will be created with the result values."))
 ;;;                                                             (list 'vec (length (car v)) 'scalar)
 ;;;                                                             'scalar))
 ;;;                                                       args)
-              
+
 ;;;                                               ,return-type)
 ;;;                                   ,dname))))
-              
+
               (when destructive-version-p
                 `((defun ,dname ,(append vectors-and-scalars)
                     ,(concatenate 'string doc "
@@ -280,7 +280,7 @@ Will override the first parameter with the result.")
 
 (declaim (inline vec-clone-empty))
 (defun vec-clone-empty (v)
-  "Create a vector with the same length as the given one, but 
+  "Create a vector with the same length as the given one, but
 with all elements initialized to zero."
   (make-sequence (type-of v) (length v)
                  :initial-element (coerce 0 (array-element-type v))))
@@ -443,65 +443,65 @@ with all elements initialized to zero."
 ;;;; * Vector Length
 ;;;
 
-(defun vec-magnitude^2 (v)
+(defun vec-magnitude-squared (v)
   "Returns the squared length of the vector."
   (declare (type vec v))
   (loop for a across v sum (square a)))
 
-(defvecfun vec2-magnitude^2 (((x y) v))
+(defvecfun vec2-magnitude-squared (((x y) v))
     ((:returning-scalar t)
      (:documentation "Returns the squared length of the vector."))
   (+ (square x) (square y)))
 
-(defvecfun vec3-magnitude^2 (((x y z) v))
+(defvecfun vec3-magnitude-squared (((x y z) v))
     ((:returning-scalar t)
      (:documentation "Returns the squared length of the vector."))
   (+ (square x) (square y) (square z)))
 
-(defvecfun vec4-magnitude^2 (((x y z w) v))
+(defvecfun vec4-magnitude-squared (((x y z w) v))
     ((:returning-scalar t)
      (:documentation "Returns the squared length of the vector."))
   (+ (square x) (square y) (square z) (square w)))
 
 (defun vec-magnitude (v)
   "Returns the squared length of the vector."
-  (sqrt (vec-magnitude^2 v)))
+  (sqrt (vec-magnitude-squared v)))
 
 (defvecfun vec2-magnitude (((x y) v))
     ((:returning-scalar t)
      (:documentation "Returns the length of the vector."))
-  (sqrt (vec2-magnitude^2* x y)))
+  (sqrt (vec2-magnitude-squared* x y)))
 
 (defvecfun vec3-magnitude (((x y z) v))
     ((:returning-scalar t)
      (:documentation "Returns the length of the vector."))
-  (sqrt (vec3-magnitude^2* x y z)))
+  (sqrt (vec3-magnitude-squared* x y z)))
 
 (defvecfun vec4-magnitude (((x y z w) v))
     ((:returning-scalar t)
      (:documentation "Returns the length of the vector."))
-  (sqrt (vec4-magnitude^2* x y z w)))
+  (sqrt (vec4-magnitude-squared* x y z w)))
 
 
 ;;;; * The Distance Between two Vectors
 ;;;
 
-(defun vec-distance^2 (a b)
+(defun vec-distance-squared (a b)
   "Returns the squared distance between two vectors."
   (declare (type vec a b))
   (loop for m across a for n across b sum (square (- m n))))
 
-(defvecfun vec2-distance^2 (((ax ay) a) ((bx by) b))
+(defvecfun vec2-distance-squared (((ax ay) a) ((bx by) b))
     ((:returning-scalar t)
      (:documentation "Returns the squared distance between two vectors."))
   (+ (square (- ax bx)) (square (- ay by))))
 
-(defvecfun vec3-distance^2 (((ax ay az) a) ((bx by bz) b))
+(defvecfun vec3-distance-squared (((ax ay az) a) ((bx by bz) b))
     ((:returning-scalar t)
      (:documentation "Returns the squared distance between two vectors."))
   (+ (square (- ax bx)) (square (- ay by)) (square (- az bz))))
 
-(defvecfun vec4-distance^2 (((ax ay az aw) a) ((bx by bz bw) b))
+(defvecfun vec4-distance-squared (((ax ay az aw) a) ((bx by bz bw) b))
     ((:returning-scalar t)
      (:documentation "Returns the squared distance between two vectors."))
   (+ (square (- ax bx)) (square (- ay by))
@@ -510,22 +510,22 @@ with all elements initialized to zero."
 (defun vec-distance (a b)
   "Returns the distance between two vectors."
   (declare (type vec a b))
-  (sqrt (vec-distance^2 a b)))
+  (sqrt (vec-distance-squared a b)))
 
 (defvecfun vec2-distance (((ax ay) a) ((bx by) b))
     ((:returning-scalar t)
      (:documentation "Returns the distance between two vectors."))
-  (sqrt (vec2-distance^2* ax ay bx by)))
+  (sqrt (vec2-distance-squared* ax ay bx by)))
 
 (defvecfun vec3-distance (((ax ay az) a) ((bx by bz) b))
     ((:returning-scalar t)
      (:documentation "Returns the distance between two vectors."))
-  (sqrt (vec3-distance^2* ax ay az bx by bz)))
+  (sqrt (vec3-distance-squared* ax ay az bx by bz)))
 
 (defvecfun vec4-distance (((ax ay az aw) a) ((bx by bz bw) b))
     ((:returning-scalar t)
      (:documentation "Returns the distance between two vectors."))
-  (sqrt (vec4-distance^2* ax ay az aw bx by bz bw)))
+  (sqrt (vec4-distance-squared* ax ay az aw bx by bz bw)))
 
 ;;;; * Vector Scaling
 ;;;
@@ -554,28 +554,28 @@ with all elements initialized to zero."
 
 (defun vec-truncate (v len &optional store)
   "Truncate the vector to a maximal magnitude."
-  (let ((ms (vec-magnitude^2 v)))
+  (let ((ms (vec-magnitude-squared v)))
     (if (> ms (square len))
         (vec-scale v (/ len (sqrt ms)) store)
         (vec-copy v store))))
 
 (defvecfun vec2-truncate (((x y) v) len)
     ((:documentation "Truncate the vector to a maximal magnitude."))
-  (let ((ms (vec2-magnitude^2* x y)))
+  (let ((ms (vec2-magnitude-squared* x y)))
     (if (> ms (square len))
         (vec2-scale* x y (/ len (sqrt ms)))
         (values x y))))
 
 (defvecfun vec3-truncate (((x y z) v) len)
     ((:documentation "Truncate the vector to a maximal magnitude."))
-  (let ((ms (vec3-magnitude^2* x y z)))
+  (let ((ms (vec3-magnitude-squared* x y z)))
     (if (> ms (square len))
         (vec3-scale* x y z (/ len (sqrt ms)))
         (values x y z))))
 
 (defvecfun vec4-truncate (((x y z w) v) len)
     ((:documentation "Truncate the vector to a maximal magnitude."))
-  (let ((ms (vec4-magnitude^2* x y z w)))
+  (let ((ms (vec4-magnitude-squared* x y z w)))
     (if (> ms (square len))
         (vec4-scale* x y z w (/ len (sqrt ms)))
         (values x y z w))))
@@ -586,19 +586,19 @@ with all elements initialized to zero."
 
 (defun vec-normalize (v &optional store)
   "Normalize the vector, scale to magnitude one."
-  (vec-scale v (inverse-sqrt (vec-magnitude^2 v)) store))
+  (vec-scale v (inverse-sqrt (vec-magnitude-squared v)) store))
 
 (defvecfun vec2-normalize (((x y) v))
     ((:documentation "Normalize the vector, scale to magnitude one."))
-  (vec2-scale* x y (inverse-sqrt (vec2-magnitude^2* x y ))))
+  (vec2-scale* x y (inverse-sqrt (vec2-magnitude-squared* x y ))))
 
 (defvecfun vec3-normalize (((x y z) v))
     ((:documentation "Normalize the vector, scale to magnitude one."))
-  (vec3-scale* x y z (inverse-sqrt (vec3-magnitude^2* x y z))))
+  (vec3-scale* x y z (inverse-sqrt (vec3-magnitude-squared* x y z))))
 
 (defvecfun vec4-normalize (((x y z w) v))
     ((:documentation "Normalize the vector, scale to magnitude one."))
-  (vec4-scale* x y z w (inverse-sqrt (vec4-magnitude^2* x y z w))))
+  (vec4-scale* x y z w (inverse-sqrt (vec4-magnitude-squared* x y z w))))
 
 
 ;;;; * Angle between two Vectors
