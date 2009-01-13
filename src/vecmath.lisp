@@ -17,6 +17,8 @@
     '(optimize (speed 3) (space 2) (debug 0) (safety 0))))
 
 (deftype scalar () 'single-float)
+(deftype angle () '(single-float 0.0 6.3))
+
 (defconstant +most-positive-scalar+ most-positive-single-float)
 (defconstant +scalar-epsilon+ single-float-epsilon)
 (defconstant +scalar-zero+ 0.0)

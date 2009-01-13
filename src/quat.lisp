@@ -14,13 +14,27 @@
 (defvector quat (vec4)
     ())
 
-(defun quat<-axis/angle (v phi)
-  (let ((half-phi (/ 2 phi)))
-    (with-vector-elements (vx vy vz) v
-      (multiple-value-bind (x y z)
-          (vec3-normalize* vx vy vz)
-        (multiple-value-call #'quat
-          (vec3-scale* x y z (sin half-phi)) (cos half-phi))))))
+(defvecfun quat<-axis/angle (((vx vy vz) v) phi)
+    ((:type vec3)
+     (:return-type quat)
+     (:omit-destructive-version t)
+     (:documentation "Construct a quaternation from an axis and an angle."))
+  (declare (type angle phi))
+  (let ((half-phi (/ phi 2)))
+    (multiple-value-bind (x y z)
+        (vec3-normalize* vx vy vz)
+      (multiple-value-bind (qx qy qz)
+          (vec3-scale* x y z (sin half-phi))
+        (values qx qy qz (cos half-phi))))))
+
+(defun quat<-euler (x y z)
+  (let ((hx (coerce (/ x 2) 'angle))
+        (hy (coerce (/ y 2) 'angle))
+        (hz (coerce (/ z 2) 'angle)))
+    (let ((roll (quat (sin hx) 0.0 0.0 (cos hx)))
+          (pitch (quat 0.0 (sin hy) 0.0 (cos hy)))
+          (yaw (quat 0.0 0.0 (sin hz) (cos hz))))
+      (quat-mul (quat-mul pitch roll) yaw))))
 
 (defun quat-identity! (q)
   (with-vector-elements (x y z w) q
@@ -37,7 +51,7 @@
     ((:documentation "Scale the quaternion."))
   (vec4-scale* x y z w s))
 
-(defvecfun quat-concat (((ax ay az aw) a) ((bx by bz bw) b) )
+(defvecfun quat-mul (((ax ay az aw) a) ((bx by bz bw) b) )
     ((:documentation "Multiplicate two quaternions."))
   (let ((s aw)
         (r bw))
@@ -76,5 +90,33 @@ represents."))
 represents."))
   (atan (vec3-magnitude* x y z) w))
 
+
+(defvecfun mat3<-quat (((x y z w) q))
+    ((:type quat)
+     (:return-type mat3)
+     (:omit-destructive-version t)
+     (:documentation "Convert a quaternation to a rotation matrix."))
+  (let* ((x2 (+ x x))  (y2 (+ y y))  (z2 (+ z z))
+         (xx (* x x2)) (yy (* y y2)) (zz (* z z2))
+         (xy (* x y2)) (xz (* x z2)) (yz (* y z2))
+         (wx (* w x2)) (wy (* w y2)) (wz (* w z2)))
+    (values (- 1 (+ yy zz)) (- xy wz) (+ xz wy)
+            (+ xy wz) (- 1 (+ xx zz)) (- yz wx)
+            (- xz wy) (+ yz wx) (- 1 (+ xx yy)))))
+
+
+(defvecfun mat4<-quat (((x y z w) q))
+  ((:type quat)
+   (:return-type mat4)
+   (:omit-destructive-version t)
+   (:documentation "Convert a quaternation to a rotation matrix."))
+  (let* ((x2 (+ x x))  (y2 (+ y y))  (z2 (+ z z))
+         (xx (* x x2)) (yy (* y y2)) (zz (* z z2))
+         (xy (* x y2)) (xz (* x z2)) (yz (* y z2))
+         (wx (* w x2)) (wy (* w y2)) (wz (* w z2)))
+    (values (- 1 (+ yy zz)) (- xy wz) (+ xz wy) 0.0
+            (+ xy wz) (- 1 (+ xx zz)) (- yz wx) 0.0
+            (- xz wy) (+ yz wx) (- 1 (+ xx yy)) 0.0
+            0.0 0.0 0.0 1.0)))
 
 ;;; quat.lisp ends here

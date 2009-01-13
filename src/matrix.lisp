@@ -113,10 +113,14 @@
         (zs (or zscale uniform-scale)))
     (make-mat4 :m00 xs :m11 ys :m22 zs)))
 
-(defun mat4<-scale (s)
-  "Construct a matrix with a scale"
+(defun mat4<-scale (x y z)
+  "Construct a matrix with a scale components"
+  (mat4 x 0.0 0.0 0.0 0.0 y 0.0 0.0 0.0 0.0 z 0.0 0.0 0.0 0.0 1.0))
+
+(defun mat4<-scale-vec (s)
+  "Construct a matrix with a scale vec"
   (with-vector-elements (x y z) s
-    (mat4 x 0.0 0.0 0.0 0.0 y 0.0 0.0 0.0 0.0 z 0.0 0.0 0.0 0.0 1.0)))
+    (mat4<-scale x y z)))
 
 (defvecfun mat2-scale (((m00 m01 m10 m11) m) s)
   ((:documentation "Add a scale component to the 2D transformation."))
@@ -142,22 +146,96 @@
 ;;;;
 
 
+(defvecfun mat3<-normalized-axis/angle (((x y z) axis) angle)
+    ((:type vec3)
+     (:return-type mat3)
+     (:omit-destructive-version t)
+     (:documentation "Construct a rotation matrix from an axis and an angle.
+Assume the axis vector is already normalized."))
+  (declare (type (single-float 0.0 6.3) angle))
+  (let* ((cos (cos angle))
+         (sin (sin angle))
+         (omc (invert cos))
+         (xy (* x y omc))
+         (xz (* x z omc))
+         (yz (* y z omc))
+         (xsin (* x sin))
+         (ysin (* y sin))
+         (zsin (* z sin)))
+    (values (+ cos (* x x omc)) (- xy zsin) (+ xz ysin)
+            (+ xy zsin) (+ cos (* y y omc)) (- yz xsin)
+            (- xz ysin) (+ yz xsin) (+ cos (* z z omc)))))
+
+(defvecfun mat3<-axis/angle (((x y z) axis) angle)
+    ((:type vec3)
+     (:return-type mat3)
+     (:omit-destructive-version t)
+     (:documentation "Construct a rotation matrix from an axis and an angle"))
+  (multiple-value-bind (a b c)
+      (vec3-normalize* x y z)
+    (mat3<-normalized-axis/angle* a b c angle)))
+
+
+(defvecfun mat4<-normalized-axis/angle (((x y z) axis) angle)
+    ((:type vec3)
+     (:return-type mat4)
+     (:omit-destructive-version t)
+     (:documentation "Construct a rotation matrix from an axis and an angle.
+Assume the axis vector is already normalized."))
+  (declare (type (single-float 0.0 6.3) angle))
+  (let* ((cos (cos angle))
+         (sin (sin angle))
+         (omc (invert cos))
+         (xy (* x y omc))
+         (xz (* x z omc))
+         (yz (* y z omc))
+         (xsin (* x sin))
+         (ysin (* y sin))
+         (zsin (* z sin)))
+      (values (+ cos (* x x omc)) (- xy zsin) (+ xz ysin)
+              (+ xy zsin) (+ cos (* y y omc)) (- yz xsin)
+              (- xz ysin) (+ yz xsin) (+ cos (* z z omc))
+              0.0 0.0 0.0 1.0)))
+
+(defvecfun mat4<-axis/angle (((x y z) axis) angle)
+    ((:type vec3)
+     (:return-type mat4)
+     (:omit-destructive-version t)
+     (:documentation "Construct a rotation matrix from an axis and an angle"))
+  (multiple-value-bind (a b c)
+      (vec3-normalize* x y z)
+    (mat4<-normalized-axis/angle* a b c angle)))
+
+
+(defun mat3<-euler (x y z)
+  "Construct a rotation matrix from euler angles"
+  (mat3<-quat (quat<-euler x y z)))
+
+(defun mat4<-euler (x y z)
+  "Construct a rotation matrix from euler angles"
+  (mat4<-quat (quat<-euler x y z)))
 
 ;;;; * Translation
 ;;;;
 
-(defun mat4<-translation (v)
-  "Construct a matrix with a translation."
+
+(defun mat4<-translation (x y z)
+  "Construct a matrix with an identity rotation and a translation component."
   (with-vector-elements (x y z) v
     (mat4 1.0 0.0 0.0 x
           0.0 1.0 0.0 y
           0.0 0.0 1.0 z
           0.0 0.0 0.0 1.0)))
 
+(defun mat4<-translation-vec (v)
+  "Construct a matrix with an identity rotation and a translation component."
+  (with-vector-elements (x y z) v
+    (mat4<-translation)))
+
 (defvecfun mat4-translate (((m00 m01 m02 m03 m10 m11 m12 m13 m20 m21 m22 m23 m30 m31 m32 m33) m) x y z)
   ((:documentation "Add a translation component to the 3D transformation."))
-  (mat4-mul* m00 m01 m02 m03 m10 m11 m12 m13 m20 m21 m22 m23 m30 m31 m32 m33
-             x   0.0 0.0 0.0 0.0 y   0.0 0.0 0.0 0.0 z   0.0 0.0 0.0 0.0 1.0))
+  (mat4-mul* x   0.0 0.0 0.0 0.0 y   0.0 0.0 0.0 0.0 z   0.0 0.0 0.0 0.0 1.0
+             m00 m01 m02 m03 m10 m11 m12 m13 m20 m21 m22 m23 m30 m31 m32 m33))
 
 ;;;; * Matrix Multiplication with a Scalar
 ;;;
@@ -223,8 +301,8 @@
           (+ (* m20 n01) (* m21 n11) (* m22 n21))
           (+ (* m20 n02) (* m21 n12) (* m22 n22))))
 
-(defvecfun mat3-mul-lt (((m00 m01 m02 m10 m11 m12 m20 m21 m22) m)
-                        ((n00 n01 n02 n10 n11 n12 n20 n21 n22) n))
+(defvecfun mat3-mul-transposed (((m00 m01 m02 m10 m11 m12 m20 m21 m22) m)
+                                ((n00 n01 n02 n10 n11 n12 n20 n21 n22) n))
     ((:documentation "Concatenate two matrices with the left one transposed."))
   (mat3-mul* m00 m10 m20 m01 m11 m21 m02 m12 m22
              n00 n01 n02 n10 n11 n12 n20 n21 n22))
@@ -251,10 +329,10 @@
           (+ (* m30 n02) (* m31 n12) (* m32 n22) (* m33 n32))
           (+ (* m30 n03) (* m31 n13) (* m32 n23) (* m33 n33))))
 
-(defvecfun mat4-mul-lt (((m00 m01 m02 m03 m10 m11 m12 m13
-                              m20 m21 m22 m23 m30 m31 m32 m33) m)
-                        ((n00 n01 n02 n03 n10 n11 n12 n13
-                              n20 n21 n22 n23 n30 n31 n32 n33) n))
+(defvecfun mat4-mul-transposed (((m00 m01 m02 m03 m10 m11 m12 m13
+                                      m20 m21 m22 m23 m30 m31 m32 m33) m)
+                                ((n00 n01 n02 n03 n10 n11 n12 n13
+                                      n20 n21 n22 n23 n30 n31 n32 n33) n))
     ((:documentation "Concatenate two matrices with the left one transposed."))
   (mat4-mul* m00 m10 m20 m30 m01 m11 m21 m31 m20 m12 m22 m32 m03 m13 m23 m33
              n00 n01 n02 n03 n10 n11 n12 n13 n20 n21 n22 n23 n30 n31 n32 n33))
@@ -397,65 +475,6 @@
           (+ (* m20 x) (* m21 y) (* m22 z) (* m23 w))
           (+ (* m30 x) (* m31 y) (* m32 z) (* m33 w))))
 
-(defvecfun mat3<-normalized-axis/angle (((x y z) axis) angle)
-    ((:type vec3)
-     (:return-type mat3)
-     (:omit-destructive-version t)
-     (:documentation "Construct a rotation matrix from an axis and an angle.
-Assume the axis vector is already normalized."))
-  (declare (type (single-float 0.0 6.3) angle))
-  (let* ((cos (cos angle))
-         (sin (sin angle))
-         (omc (invert cos))
-         (xy (* x y omc))
-         (xz (* x z omc))
-         (yz (* y z omc))
-         (xsin (* x sin))
-         (ysin (* y sin))
-         (zsin (* z sin)))
-    (values (+ cos (* x x omc)) (- xy zsin) (+ xz ysin)
-            (+ xy zsin) (+ cos (* y y omc)) (- yz xsin)
-            (- xz ysin) (+ yz xsin) (+ cos (* z z omc)))))
-
-(defvecfun mat3<-axis/angle (((x y z) axis) angle)
-    ((:type vec3)
-     (:return-type mat3)
-     (:omit-destructive-version t)
-     (:documentation "Construct a rotation matrix from an axis and an angle"))
-  (multiple-value-bind (a b c)
-      (vec3-normalize* x y z)
-    (mat3<-normalized-axis/angle* a b c angle)))
-
-
-(defvecfun mat4<-normalized-axis/angle (((x y z) axis) angle)
-    ((:type vec3)
-     (:return-type mat4)
-     (:omit-destructive-version t)
-     (:documentation "Construct a rotation matrix from an axis and an angle.
-Assume the axis vector is already normalized."))
-  (declare (type (single-float 0.0 6.3) angle))
-  (let* ((cos (cos angle))
-         (sin (sin angle))
-         (omc (invert cos))
-         (xy (* x y omc))
-         (xz (* x z omc))
-         (yz (* y z omc))
-         (xsin (* x sin))
-         (ysin (* y sin))
-         (zsin (* z sin)))
-      (values (+ cos (* x x omc)) (- xy zsin) (+ xz ysin)
-              (+ xy zsin) (+ cos (* y y omc)) (- yz xsin)
-              (- xz ysin) (+ yz xsin) (+ cos (* z z omc))
-              0.0 0.0 0.0 1.0)))
-
-(defvecfun mat4<-axis/angle (((x y z) axis) angle)
-    ((:type vec3)
-     (:return-type mat4)
-     (:omit-destructive-version t)
-     (:documentation "Construct a rotation matrix from an axis and an angle"))
-  (multiple-value-bind (a b c)
-      (vec3-normalize* x y z)
-    (mat4<-normalized-axis/angle* a b c angle)))
 
 
 ;;; matrix.lisp ends here
