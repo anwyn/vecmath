@@ -121,6 +121,9 @@ Returns B or the new vector."
   (defun %make-vec-funcs (type nname args options body)
     (let* ((return-type (or (second (assoc :return-type options)) type))
            (returning-vector (not (second (assoc :returning-scalar options))))
+           (return-type-slots (if returning-vector
+                                  (get return-type 'slot-list '(x))
+                                  '(x)))
            (destructive-version-p (and returning-vector
                                        (not (second (assoc :omit-destructive-version options)))))
            (doc (second (assoc :documentation options)))
@@ -131,7 +134,7 @@ Returns B or the new vector."
                                              (string '#:<-values))))
            (vec<-values! (intern (concatenate 'string (string return-type)
                                               (string '#:<-values) "!")))
-           (scalars-only (remove-if #'consp args))
+;;            (scalars-only (remove-if #'consp args))
            (vectors-only (remove-if-not #'consp args))
            (element-type (or (get type 'element-type)
                              (error "Can not get element-type of vector ~a.
@@ -146,23 +149,20 @@ Are you are sure it has been defined with `defvector'?." (string type))))
 
               ;; define the multiple values version, always inline
               `((declaim (inline ,vname)
-                         ;; (ftype (function ,(mapcar (lambda (v)
-                         ;;                                                      (declare (ignore v))
-                         ;;                                                      'scalar)
-                         ;;                                                    scalar-args)
-                         ;;                                           (values ,@(if returning-vector
-                         ;;                                                         (mapcar (lambda (v)
-                         ;;                                                                   (declare (ignore v))
-                         ;;                                                                   'scalar)
-                         ;;                                                                 (first args))
-                         ;;                                                         '(scalar))))
-                         ;;                                 ,vname)
-                         ))
+                         (ftype (function ,(mapcar (lambda (v)
+                                                     (declare (ignore v))
+                                                     'scalar)
+                                                   scalar-args)
+                                          (values ,@(mapcar (lambda (v)
+                                                              (declare (ignore v))
+                                                              'scalar)
+                                                            return-type-slots)))
+       ,vname)))
               `((defun ,vname ,scalar-args
                   ,(concatenate 'string doc "
 Multiple values version. Takes individual vector components as arguments
 and returns the result as multiple values.")
-                  (declare (type ,element-type ,@scalar-args) ,*optimization*)
+                  (declare ,*optimization*)
                   ,@body))
 
               ;; define the normal version
@@ -186,12 +186,7 @@ and returns the result as multiple values.")
                                 (when returning-vector "
 The result is stored in the optional third parameter `store' if provided.
 If `store' is nil, a new vector will be created with the result values."))
-                  (declare (type ,type ,@(mapcar #'cadr vectors-only))
-                           ,@(when scalars-only
-                                   `((type ,element-type ,@scalars-only)))
-                           ,@(when returning-vector
-                                   `((type (or null ,return-type) store)))
-                           ,*optimization*)
+                  (declare ,*optimization*)
                   (with-vectors ,(mapcan #'copy-tree vectors-only)
                     ,(if returning-vector
                          `(if store

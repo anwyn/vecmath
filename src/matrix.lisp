@@ -113,6 +113,7 @@
         (zs (or zscale uniform-scale)))
     (make-mat4 :m00 xs :m11 ys :m22 zs)))
 
+(declaim (inline mat<-scale))
 (defun mat4<-scale (x y z)
   "Construct a matrix with a scale components"
   (mat4 x 0.0 0.0 0.0 0.0 y 0.0 0.0 0.0 0.0 z 0.0 0.0 0.0 0.0 1.0))
@@ -124,23 +125,18 @@
 
 (defvecfun mat2-scale (((m00 m01 m10 m11) m) s)
   ((:documentation "Add a scale component to the 2D transformation."))
-  (mat2-mul* m00 m01 m10 m11
-             s   0.0 0.0 s))
-
-(defvecfun mat32-scale (((m00 m01 m02 m10 m11 m12 m20 m21 m22) m) s)
-  ((:documentation "Add a uniform scale component to the 2D transformation."))
-    (mat3-mul* m00 m01 m02 m10 m11 m12
-               s   0.0 0.0 0.0 s   0.0))
+  (mat2-mul* s   0.0 0.0 s
+             m00 m01 m10 m11))
 
 (defvecfun mat3-scale (((m00 m01 m02 m10 m11 m12 m20 m21 m22) m) s)
     ((:documentation "Add a uniform scale component to the 3D transformation."))
-    (mat3-mul* m00 m01 m02 m10 m11 m12 m20 m21 m22
-               s   0.0 0.0 0.0 s   0.0 0.0 0.0 s))
+  (mat3-mul* s   0.0 0.0 0.0 s   0.0 0.0 0.0 s
+             m00 m01 m02 m10 m11 m12 m20 m21 m22))
 
 (defvecfun mat4-scale (((m00 m01 m02 m03 m10 m11 m12 m13 m20 m21 m22 m23 m30 m31 m32 m33) m) s)
     ((:documentation "Add a uniform scale component to the 3D transformation."))
-  (mat4-mul* m00 m01 m02 m03 m10 m11 m12 m13 m20 m21 m22 m23 m30 m31 m32 m33
-             s   0.0 0.0 0.0 0.0 s   0.0 0.0 0.0 0.0 s   0.0 0.0 0.0 0.0 1.0))
+  (mat4-mul* s   0.0 0.0 0.0 0.0 s   0.0 0.0 0.0 0.0 s   0.0 0.0 0.0 0.0 1.0
+             m00 m01 m02 m03 m10 m11 m12 m13 m20 m21 m22 m23 m30 m31 m32 m33))
 
 ;;;; * Rotation
 ;;;;
@@ -152,7 +148,7 @@
      (:omit-destructive-version t)
      (:documentation "Construct a rotation matrix from an axis and an angle.
 Assume the axis vector is already normalized."))
-  (declare (type (single-float 0.0 6.3) angle))
+  (declare (type angle angle))
   (let* ((cos (cos angle))
          (sin (sin angle))
          (omc (invert cos))
@@ -221,16 +217,15 @@ Assume the axis vector is already normalized."))
 
 (defun mat4<-translation (x y z)
   "Construct a matrix with an identity rotation and a translation component."
-  (with-vector-elements (x y z) v
-    (mat4 1.0 0.0 0.0 x
-          0.0 1.0 0.0 y
-          0.0 0.0 1.0 z
-          0.0 0.0 0.0 1.0)))
+  (mat4 1.0 0.0 0.0 x
+        0.0 1.0 0.0 y
+        0.0 0.0 1.0 z
+        0.0 0.0 0.0 1.0))
 
 (defun mat4<-translation-vec (v)
   "Construct a matrix with an identity rotation and a translation component."
   (with-vector-elements (x y z) v
-    (mat4<-translation)))
+    (mat4<-translation x y z)))
 
 (defvecfun mat4-translate (((m00 m01 m02 m03 m10 m11 m12 m13 m20 m21 m22 m23 m30 m31 m32 m33) m) x y z)
   ((:documentation "Add a translation component to the 3D transformation."))
@@ -334,7 +329,7 @@ Assume the axis vector is already normalized."))
                                 ((n00 n01 n02 n03 n10 n11 n12 n13
                                       n20 n21 n22 n23 n30 n31 n32 n33) n))
     ((:documentation "Concatenate two matrices with the left one transposed."))
-  (mat4-mul* m00 m10 m20 m30 m01 m11 m21 m31 m20 m12 m22 m32 m03 m13 m23 m33
+  (mat4-mul* m00 m10 m20 m30 m01 m11 m21 m31 m02 m12 m22 m32 m03 m13 m23 m33
              n00 n01 n02 n03 n10 n11 n12 n13 n20 n21 n22 n23 n30 n31 n32 n33))
 
 
@@ -418,7 +413,7 @@ Assume the axis vector is already normalized."))
 ;;;
 
 (defun mat-negate (m &optional store)
-  (map-into (mat-ensure-store store) #'negate m))
+  (map-into (mat-ensure-store m store) #'negate m))
 
 (defvecfun mat2-negate (((m00 m01 m10 m11) m))
     ((:documentation "Negate the matrix."))
