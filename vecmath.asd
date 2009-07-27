@@ -1,11 +1,11 @@
 ;;; -*- lisp -*-
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  (unless (find-package '#:vecmath.system)
-    (defpackage #:vecmath.system
+  (unless (find-package '#:vecmath-system)
+    (defpackage #:vecmath-system
       (:use :common-lisp :asdf))))
 
-(in-package #:vecmath.system)
+(in-package #:vecmath-system)
 
 (defsystem :vecmath 
   :description "Simple 2d and 3d vector and matrix math library." 

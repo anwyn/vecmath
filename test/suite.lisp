@@ -20,7 +20,7 @@
 (in-root-suite)
 
 (defsuite* (vecmath-tests
-            :description "Vector Mathematics Tests"))
+            :documentation "Vector Mathematics Tests"))
 
 ;;;; ** Tests for the scalar helper functions
 
