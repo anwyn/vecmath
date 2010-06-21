@@ -1,249 +1,27 @@
 ;;; vector.lisp --- Simple 2d and 3d vector and matrix math library.
-;;;                 _             
-;;; __   _____  ___| |_ ___  _ __ 
+;;;                 _
+;;; __   _____  ___| |_ ___  _ __
 ;;; \ \ / / _ \/ __| __/ _ \| '__|
-;;;  \ V /  __/ (__| || (_) | |   
-;;;   \_/ \___|\___|\__\___/|_|   
-;;;                              
+;;;  \ V /  __/ (__| || (_) | |
+;;;   \_/ \___|\___|\__\___/|_|
+;;;
 ;;; Copyright (C) 2007 Ole Arndt <ole@sugarshark.com>
-;;; 
+;;;
 
 (in-package :vecmath)
 
-;; (declaim (optimize (speed 3) (space 0) (debug 0) (safety 0)))
-
-;;;; * Vector Types
-;;;
-
-(defmacro defvector (type supers slots &body options)
-  (let* ((element-type (if supers
-                           (or (get (car supers) 'element-type)
-                               (error "Can not get element-type of super class ~a.
-Are you are sure it has been defined with `defvector'?."
-                                      (string (car supers))))
-                           (or (cadr (assoc :element-type options)) 'scalar)))
-         (super-slots (and supers
-                           (or (get (car supers) 'slot-list)
-                               (error "Can not get slots of super class ~a.
-Are you are sure it has been defined with `defvector'?."
-                                      (string (car supers))))))
-         (effective-slots (append super-slots slots))
-         (simple-slots (mapcar #'(lambda (s)
-                                   (if (consp s)
-                                       (car s)
-                                       s)) effective-slots))
-         (unique-slots (mapcar #'(lambda (a) (gensym (string a))) simple-slots))
-         (vec (gensym "V"))
-         (vec->values (intern (concatenate 'string (string type) (string '#:->values))))
-         (vec<-values (intern (concatenate 'string (string type) (string '#:<-values))))
-         (vec<-values! (intern (concatenate 'string (string type) (string '#:<-values) "!")))
-         (cloner (intern (concatenate 'string (string type) (string '#:-clone))))
-         (copier (intern (concatenate 'string (string type) (string '#:-copy)))))
-    `(progn
-       (deftype ,type () '(simple-array ,element-type (,(length effective-slots))))
-       (eval-when (:compile-toplevel :load-toplevel :execute)
-         (setf (get ',type 'slot-list) ',effective-slots)
-         (setf (get ',type 'element-type) ',element-type))
-       (defmacro ,vec->values (v)
-         (list 'with-vector-elements ',unique-slots v
-               '(values ,@unique-slots)))
-       (defmacro ,vec<-values (form)
-         (list 'multiple-value-bind ',unique-slots form
-               '(,type ,@unique-slots)))
-       (defmacro ,vec<-values! (v form)
-         (list 'let (list (list ',vec (list 'or v (list ',type))))
-               (list 'with-vector-elements ',unique-slots ',vec
-                     (list 'multiple-value-setq ',unique-slots form) ',vec)))
-       (declaim (inline ,cloner ,copier)
-                (ftype (function (,type) ,type) ,cloner)
-                (ftype (function (,type &optional (or null ,type)) ,type) ,copier))
-       (defun ,cloner (v)
-         "Clone vector V."
-         (declare (type ,type v) ,*optimization*)
-         (with-vector-elements ,unique-slots v (,type ,@unique-slots)))
-       (defun ,copier (a &optional b)
-         "Copy vector A into vector B. When B is nil, an new vector will be made.
-Returns B or the new vector."
-         (declare (type ,type a) (type (or null ,type) b) ,*optimization*)
-         (,vec<-values! b (,vec->values a)))
-       (declaim (inline ,type))
-       (defstruct (,type ,@(when supers (list (list ':include (car supers))))
-                         (:type (vector ,element-type))
-                         (:copier nil)
-                         (:constructor)
-                         (:constructor ,type ,(cons '&optional simple-slots)))
-         ,@(mapcar (lambda (s)
-                     (if (consp s)
-                         (list (car s) (cadr s) ':type element-type)
-                         (list s (coerce 0 element-type) ':type element-type))) slots)))))
+;;;; ---------------------------------------------------------------------------
+;;;; * Definition of vector types
 
 
-
-;;;; * Macro Definitions
-;;;
-
-(defmacro with-vector-elements (vars vector &body body)
-  (let ((vec (gensym))
-        (index-counter 0))
-    (declare (type fixnum index-counter))
-    `(let ((,vec ,vector))
-       (declare (type (simple-array scalar) ,vec) (ignorable ,vec))
-       (symbol-macrolet ,(mapcar (lambda (var-entry)
-                                   (let ((var-name
-                                          (if (symbolp var-entry)
-                                              var-entry
-                                              (car var-entry)))
-                                         (index
-                                          (if (symbolp var-entry)
-                                              index-counter
-                                              (cadr var-entry))))
-                                     (declare (type fixnum index))
-                                     (setf index-counter (1+ index))
-                                     `(,var-name
-                                       (row-major-aref ,vec ,index))))
-                                 vars)
-         ,@body))))
-
-(eval-when (:compile-toplevel :load-toplevel :execute)
-  (defun %make-with-vectors (vectors body)
-    (if (null vectors)
-        `(progn ,@body)
-        (let ((vars (car vectors))
-              (vec (cadr vectors))
-              (rest (cddr vectors)))
-          `(with-vector-elements ,vars ,vec
-             ,(%make-with-vectors rest body))))))
-
-(defmacro with-vectors (vectors &body body)
-  (%make-with-vectors vectors body))
-
-(eval-when (:compile-toplevel :load-toplevel :execute)
-  ;; generate vector manipulation functions
-  (defun %make-vec-funcs (type nname args options body)
-    (let* ((return-type (or (second (assoc :return-type options)) type))
-           (returning-vector (not (second (assoc :returning-scalar options))))
-           (destructive-version-p (and returning-vector
-                                       (not (second (assoc :omit-destructive-version options)))))
-           (doc (second (assoc :documentation options)))
-           (inline-p (not (eq t (second (assoc :no-inline options)))))
-           (vname (intern (concatenate 'string (string nname) "*")))
-           (dname (intern (concatenate 'string (string nname) "!")))
-           (vec<-values (intern (concatenate 'string (string return-type)
-                                             (string '#:<-values))))
-           (vec<-values! (intern (concatenate 'string (string return-type)
-                                              (string '#:<-values) "!")))
-           (scalars-only (remove-if #'consp args))
-           (vectors-only (remove-if-not #'consp args))
-           (element-type (or (get type 'element-type)
-                             (error "Can not get element-type of vector ~a.
-Are you are sure it has been defined with `defvector'?." (string type))))
-           (scalar-args
-            (mapcan #'(lambda (a)
-                        (if (consp a) (copy-tree (car a)) (list a))) args))
-           (vectors-and-scalars
-            (mapcar #'(lambda (a)
-                        (if (consp a) (cadr a) a)) args)))
-      (append '(progn)
-
-              ;; define the multiple values version, always inline
-              `((declaim (inline ,vname)
-                         ;; (ftype (function ,(mapcar (lambda (v)
-                         ;;                                                      (declare (ignore v))
-                         ;;                                                      'scalar)
-                         ;;                                                    scalar-args)
-                         ;;                                           (values ,@(if returning-vector
-                         ;;                                                         (mapcar (lambda (v)
-                         ;;                                                                   (declare (ignore v))
-                         ;;                                                                   'scalar)
-                         ;;                                                                 (first args))
-                         ;;                                                         '(scalar))))
-                         ;;                                 ,vname)
-                         ))
-              `((defun ,vname ,scalar-args
-                  ,(concatenate 'string doc "
-Multiple values version. Takes individual vector components as arguments
-and returns the result as multiple values.")
-                  (declare (type ,element-type ,@scalar-args) ,*optimization*)
-                  ,@body))
-              
-              ;; define the normal version
-              (when inline-p
-                `((declaim (inline ,nname))))
-
-;;;               `((declaim (ftype (function ,(append
-;;;                                             (mapcar (lambda (v)
-;;;                                                       (if (consp v)
-;;;                                                           (list 'vec (length (car v)) 'scalar)
-;;;                                                           'scalar))
-;;;                                                     args)
-;;;                                             (when returning-vector
-;;;                                               `(&optional ,return-type)))
-;;;                                           ,(if returning-vector return-type 'scalar))
-;;;                                 ,nname)))
-              
-              `((defun ,nname ,(append vectors-and-scalars (when returning-vector
-                                                             `(&optional store)))
-                  ,(concatenate 'string doc
-                                (when returning-vector "
-The result is stored in the optional third parameter `store' if provided.
-If `store' is nil, a new vector will be created with the result values."))
-                  (declare (type ,type ,@(mapcar #'cadr vectors-only))
-                           ,@(when scalars-only
-                                   `((type ,element-type ,@scalars-only)))
-                           ,@(when returning-vector
-                                   `((type (or null ,return-type) store)))
-                           ,*optimization*)
-                  (with-vectors ,(mapcan #'copy-tree vectors-only)
-                    ,(if returning-vector
-                         `(if store
-                              (,vec<-values! store (,vname ,@scalar-args))
-                              (,vec<-values (,vname ,@scalar-args)))
-                         `(the ,element-type (,vname ,@scalar-args))))))
-
-              ;; destructive version
-              (when (and destructive-version-p inline-p)
-                `((declaim (inline ,dname))))
-
-;;;               (when destructive-version-p
-;;;                 `((declaim (ftype (function , (mapcar (lambda (v)
-;;;                                                         (if (consp v)
-;;;                                                             (list 'vec (length (car v)) 'scalar)
-;;;                                                             'scalar))
-;;;                                                       args)
-              
-;;;                                               ,return-type)
-;;;                                   ,dname))))
-              
-              (when destructive-version-p
-                `((defun ,dname ,(append vectors-and-scalars)
-                    ,(concatenate 'string doc "
-Will override the first parameter with the result.")
-                    (with-vectors ,(mapcan #'copy-tree vectors-only)
-                      (,vec<-values! ,(second (first vectors-only))
-                                     (,vname ,@scalar-args))))))))))
-
-(defmacro defvecfun (function-name args options &body body)
-  (let* ((name (string function-name))
-         (type (or (second (assoc :type options))
-                   (intern (subseq name 0 (position #\- name))))))
-    (%make-vec-funcs type function-name args options body)))
-
-
-;;;; * Types
-;;;
-
-;;; A vector of arbitrary length with element type scalar
-(deftype vec (&optional len (element-type 'scalar))
-  `(simple-array ,element-type (,len)))
-
-(defvector vec2 ()
+(defvector vec2
     (x y))
 
-(defvector vec3 (vec2)
-    (z))
+(defvector vec3
+    (x y z))
 
-(defvector vec4 (vec3)
-    ((w 1.0)))
+(defvector vec4
+    (x y z (w 1.0)))
 
 ;;;; * Vector Constants
 ;;;
@@ -276,360 +54,342 @@ Will override the first parameter with the result.")
 (declaim (inline vec-copy))
 (defun vec-copy (a &optional b)
   (if b
-      (map-into b #'identity a)
+      (loop :for val across a
+            :for i = 0 then (1+ i)
+            :do (setf (row-major-aref b i) val)
+            :finally (return b))
       (copy-seq a)))
 
 (declaim (inline vec-clone-empty))
 (defun vec-clone-empty (v)
-  "Create a vector with the same length as the given one, but 
+  "Create a vector with the same length as the given one, but
 with all elements initialized to zero."
   (make-sequence (type-of v) (length v)
                  :initial-element (coerce 0 (array-element-type v))))
 
 (declaim (inline vec-ensure-store))
-(defun vec-ensure-store (template store)
+(defun vec-ensure-store (template &optional store)
   (declare (type vec template) (type (or null vec) store))
   (or store (vec-clone-empty template)))
 
 (declaim (inline vec-ensure-copy))
 (defun vec-ensure-copy (template store)
   (declare (type vec template) (type (or null vec) store))
-  (the vec (or store (vec-copy template))))
+  (the vec (or store (copy-seq template))))
 
 ;;;; * Vector Multiplication
 ;;;
 
-(defun vec-scale (v s &optional store)
+(defvfun vec-scale ((v vec) s &optional (store vec)) vec
   "Multiplicate a vector with a scalar."
-  (declare (type vec v) (type (or null vec) store))
-  (map-into (vec-ensure-store v store) #'(lambda (a) (* a s)) v))
+  (loop :with ret = (vec-ensure-store v store)
+        :for val across v
+        :for i = 0 then (1+ i)
+        :do (setf (row-major-aref ret i) (* val s))
+        :finally (return ret)))
 
-(defvecfun vec2-scale (((x y) v) s)
-    ((:documentation "Multiplicate a two dimensional vector with a scalar."))
-  (values (* x s) (* y s)))
+(defvfun vec2-scale ((v vec2) s) vec2
+  "Multiplicate a two dimensional vector with a scalar."
+  (values (* v.x s) (* v.y s)))
 
-(defvecfun vec3-scale (((x y z) v) s)
-    ((:documentation "Multiplicate a three dimensional vector with a scalar."))
-  (values (* x s) (* y s) (* z s)))
+(defvfun vec3-scale ((v vec3) s) vec3
+  "Multiplicate a three dimensional vector with a scalar."
+  (values (* v.x s) (* v.y s) (* v.z s)))
 
-(defvecfun vec4-scale (((x y z w) v) s)
-    ((:documentation "Multiplicate a vector in homogenous space with a scalar."))
-  (values (* x s) (* y s) (* z s) (* w s)))
+(defvfun vec4-scale ((v vec4) s) vec4
+  "Multiplicate a vector in homogenous space with a scalar."
+  (values (* v.x s) (* v.y s) (* v.z s) (* v.w s)))
 
 
- ;;;; * Vector Division
+;;;; * Vector Division
 ;;;
 
-(defun vec-div (v s &optional store)
+(defvfun vec-div ((v vec) s &optional (store vec)) vec
   "Divide a vector through a scalar."
   (vec-scale v (invert s) store))
 
-(defvecfun vec2-div (((x y) v) s)
-    ((:documentation "Divide a two dimensional vector through a scalar."))
-  (vec2-scale* x y (invert s)))
+(defvfun vec2-div ((v vec2) s) vec2
+  "Divide a two dimensional vector through a scalar."
+  (vec2-scale* v.x v.y (invert s)))
 
-(defvecfun vec3-div (((x y z) v) s)
-    ((:documentation "Divide a three dimensional vector through a scalar."))
-  (vec3-scale* x y z (invert s)))
+(defvfun vec3-div ((v vec3) s) vec3
+  "Divide a three dimensional vector through a scalar."
+  (vec3-scale* v.x v.y v.z (invert s)))
 
-(defvecfun vec4-div (((x y z w) v) s)
-    ((:documentation "Divide a vector in homogenous space through a scalar."))
-  (vec4-scale* x y z w (invert s)))
-
+(defvfun vec4-div ((v vec4) s) vec4
+  "Divide a vector in homogenous space through a scalar."
+  (vec4-scale* v.x v.y v.z v.w (invert s)))
 
 
 ;;;; * Vector Negation
 ;;;
 
-(defun vec-invert (v &optional store)
+(defvfun vec-invert ((v vec) &optional (store vec)) vec
   "Multiplicate a vector's elements with -1."
   (vec-scale v +scalar-minus-one+ store))
 
-(defvecfun vec2-invert (((x y) v))
-    ((:documentation "Invert the vector, multiply all elements with -1. "))
-  (vec2-scale* x y +scalar-minus-one+))
+(defvfun vec2-invert ((v vec2)) vec2
+  "Invert the vector, multiply all elements with -1. "
+  (vec2-scale* v.x v.y +scalar-minus-one+))
 
-(defvecfun vec3-invert (((x y z) v))
-    ((:documentation "Invert the vector, multiply all elements with -1. "))
-  (vec3-scale* x y z +scalar-minus-one+))
+(defvfun vec3-invert ((v vec3)) vec3
+  "Invert the vector, multiply all elements with -1. "
+  (vec3-scale* v.x v.y v.z +scalar-minus-one+))
 
-(defvecfun vec4-invert (((x y z w) v))
-    ((:documentation "Invert the vector, multiply all elements with -1. "))
-  (vec4-scale* x y z w +scalar-minus-one+))
+(defvfun vec4-invert ((v vec4)) vec4
+  "Invert the vector, multiply all elements with -1. "
+  (vec4-scale* v.x v.y v.z v.w +scalar-minus-one+))
 
 ;;;; * Vector Addition and Substraction
 ;;;
 
-(defun vec-add (a b &optional store)
+(defvfun vec-add ((a vec) (b vec) &optional (store vec)) vec
   "Add two vectors component wise."
-  (declare (type vec a b) (type (or null vec) store))
   (map-into (vec-ensure-store a store) #'+ a b))
 
-(defvecfun vec2-add (((ax ay) a) ((bx by) b))
-    ((:documentation "Add two vectors component wise."))
-  (values (+ ax bx) (+ ay by)))
+(defvfun vec2-add ((a vec2) (b vec2)) vec2
+  "Add two vectors component wise."
+  (values (+ a.x b.x) (+ a.y b.y)))
 
-(defvecfun vec3-add (((ax ay az) a) ((bx by bz) b))
-    ((:documentation "Add two vectors component wise."))
-  (values (+ ax bx) (+ ay by) (+ az bz)))
+(defvfun vec3-add ((a vec3) (b vec3)) vec3
+  "Add two vectors component wise."
+  (values (+ a.x b.x) (+ a.y b.y) (+ a.z b.z)))
 
-(defvecfun vec4-add (((ax ay az aw) a) ((bx by bz bw) b))
-    ((:documentation "Add two vectors component wise."))
-  (values (+ ax bx) (+ ay by) (+ az bz) (+ aw bw)))
+(defvfun vec4-add ((a vec4) (b vec4)) vec4
+  "Add two vectors component wise."
+  (values (+ a.x b.x) (+ a.y b.y) (+ a.z b.z) (+ a.w b.w)))
 
 
-(defun vec-sub (a b &optional store)
+(defvfun vec-sub ((a vec) (b vec) &optional (store vec)) vec
   "Substract two vectors component wise."
-  (declare (type vec a b) (type (or null vec) store))
   (map-into (vec-ensure-store a store) #'- a b))
 
-(defvecfun vec2-sub (((ax ay) a) ((bx by) b))
-    ((:documentation "Substract two vectors component wise."))
-  (values (+ ax bx) (+ ay by)))
+(defvfun vec2-sub ((a vec2) (b vec2)) vec2
+  "Substract two vectors component wise."
+  (values (+ a.x b.x) (+ a.y b.y)))
 
-(defvecfun vec3-sub (((ax ay az) a) ((bx by bz) b))
-    ((:documentation "Substract two vectors component wise."))
-  (values (+ ax bx) (+ ay by) (+ az bz)))
+(defvfun vec3-sub ((a vec3) (b vec3)) vec3
+  "Substract two vectors component wise."
+  (values (+ a.x b.x) (+ a.y b.y) (+ a.z b.z)))
 
-(defvecfun vec4-sub (((ax ay az aw) a) ((bx by bz bw) b))
-    ((:documentation "Substract two vectors component wise."))
-  (values (+ ax bx) (+ ay by) (+ az bz) (+ aw bw)))
+(defvfun vec4-sub ((a vec4) (b vec4)) vec4
+  "Substract two vectors component wise."
+  (values (+ a.x b.x) (+ a.y b.y) (+ a.z b.z) (+ a.w b.w)))
 
 
 ;;;; * Vector Dot Product
 ;;;
 
-(declaim (inline vec-dot))
-(defun vec-dot (a b)
+(defvfun vec-dot ((a vec) (b vec)) scalar
   "Returns the dot product of the two vectors"
-  (declare (type vec a b)
-           (optimize (speed 3)))
+  (:scalar-args-version nil)
   (loop
      for m of-type scalar across a
      for n of-type scalar across b
      sum (* m n) into r of-type scalar
      finally (return r)))
 
-(defvecfun vec2-dot (((ax ay) a) ((bx by) b))
-    ((:returning-scalar t)
-     (:documentation "Returns the dot product of the two vectors"))
-  (+ (* ax bx) (* ay by)))
+(defvfun vec2-dot ((a vec2) (b vec2)) scalar
+  "Returns the dot product of the two vectors"
+  (+ (* a.x b.x) (* a.y b.y)))
 
-(defvecfun vec3-dot (((ax ay az) a) ((bx by bz) b))
-    ((:returning-scalar t)
-     (:documentation "Returns the dot product of the two vectors"))
-  (+ (* ax bx) (* ay by) (* az bz)))
+(defvfun vec3-dot ((a vec3) (b vec3)) scalar
+  "Returns the dot product of the two vectors"
+  (+ (* a.x b.x) (* a.y b.y) (* a.z b.z)))
 
-(defvecfun vec4-dot (((ax ay az aw) a) ((bx by bz bw) b))
-    ((:returning-scalar t)
-     (:documentation "Returns the dot product of the two vectors"))
-  (+ (* ax bx) (* ay by) (* az bz) (* aw bw)))
+(defvfun vec4-dot ((a vec4) (b vec4)) scalar
+  "Returns the dot product of the two vectors"
+  (+ (* a.x b.x) (* a.y b.y) (* a.z b.z) (* a.w b.w)))
 
 
 ;;;; * Vector Cross Product
 ;;;
 
-(defvecfun vec2-cross (((ax ay) a) ((bx by) b))
-    ((:documentation "Returns the cross product of the two vectors"))
-  (values (- (* ay bx) (* ax by))
-          (- (* ax by) (* ay bx))))
+(defvfun vec2-cross ((a vec2) (b vec2)) vec2
+  "Returns the cross product of the two vectors"
+  (values (- (* a.y b.x) (* a.x b.y))
+          (- (* a.x b.y) (* a.y b.x))))
 
-(defvecfun vec3-cross (((ax ay az) a) ((bx by bz) b))
-    ((:documentation "Returns the cross product of the two vectors"))
-  (values (- (* ay bz) (* az by))
-          (- (* az bx) (* ax bz))
-          (- (* ax by) (* ay bx))))
-
+(defvfun vec3-cross ((a vec3) (b vec3)) vec3
+  "Returns the cross product of the two vectors"
+  (values (- (* a.y b.z) (* a.z b.y))
+          (- (* a.z b.x) (* a.x b.z))
+          (- (* a.x b.y) (* a.y b.x))))
 
 ;;;; * Vector Length
 ;;;
 
-(defun vec-magnitude^2 (v)
+(defvfun vec-magnitude^2 ((v vec)) scalar
   "Returns the squared length of the vector."
-  (declare (type vec v))
+  (:scalar-args-version nil)
   (loop for a across v sum (square a)))
 
-(defvecfun vec2-magnitude^2 (((x y) v))
-    ((:returning-scalar t)
-     (:documentation "Returns the squared length of the vector."))
-  (+ (square x) (square y)))
-
-(defvecfun vec3-magnitude^2 (((x y z) v))
-    ((:returning-scalar t)
-     (:documentation "Returns the squared length of the vector."))
-  (+ (square x) (square y) (square z)))
-
-(defvecfun vec4-magnitude^2 (((x y z w) v))
-    ((:returning-scalar t)
-     (:documentation "Returns the squared length of the vector."))
-  (+ (square x) (square y) (square z) (square w)))
-
-(defun vec-magnitude (v)
+(defvfun vec2-magnitude^2 ((v vec2)) scalar
   "Returns the squared length of the vector."
+  (+ (square v.x) (square v.y)))
+
+(defvfun vec3-magnitude^2 ((v vec3)) scalar
+  "Returns the squared length of the vector."
+  (+ (square v.x) (square v.y) (square v.z)))
+
+(defvfun vec4-magnitude^2 ((v vec4)) scalar
+  "Returns the squared length of the vector."
+  (+ (square v.x) (square v.y) (square v.z) (square v.w)))
+
+(defvfun vec-magnitude ((v vec)) scalar
+  "Returns the squared length of the vector."
+  (:scalar-args-version nil)
   (sqrt (vec-magnitude^2 v)))
 
-(defvecfun vec2-magnitude (((x y) v))
-    ((:returning-scalar t)
-     (:documentation "Returns the length of the vector."))
-  (sqrt (vec2-magnitude^2* x y)))
+(defvfun vec2-magnitude ((v vec2)) scalar
+  "Returns the length of the vector."
+  (sqrt (vec2-magnitude^2* v.x v.y)))
 
-(defvecfun vec3-magnitude (((x y z) v))
-    ((:returning-scalar t)
-     (:documentation "Returns the length of the vector."))
-  (sqrt (vec3-magnitude^2* x y z)))
+(defvfun vec3-magnitude ((v vec3)) scalar
+  "Returns the length of the vector."
+  (sqrt (vec3-magnitude^2* v.x v.y v.z)))
 
-(defvecfun vec4-magnitude (((x y z w) v))
-    ((:returning-scalar t)
-     (:documentation "Returns the length of the vector."))
-  (sqrt (vec4-magnitude^2* x y z w)))
+(defvfun vec4-magnitude ((v vec4)) scalar
+  "Returns the length of the vector."
+  (sqrt (vec4-magnitude^2* v.x v.y v.z v.w)))
 
 
 ;;;; * The Distance Between two Vectors
 ;;;
 
-(defun vec-distance^2 (a b)
+(defvfun vec-distance^2 ((a vec) (b vec)) scalar
   "Returns the squared distance between two vectors."
-  (declare (type vec a b))
-  (loop for m across a for n across b sum (square (- m n))))
+  (:scalar-args-version nil)
+  (loop for m of-type scalar across a for n across b sum (square (- m n))))
 
-(defvecfun vec2-distance^2 (((ax ay) a) ((bx by) b))
-    ((:returning-scalar t)
-     (:documentation "Returns the squared distance between two vectors."))
-  (+ (square (- ax bx)) (square (- ay by))))
+(defvfun vec2-distance^2 ((a vec2) (b vec2)) scalar
+  "Returns the squared distance between two vectors."
+  (+ (square (- a.x b.x)) (square (- a.y b.y))))
 
-(defvecfun vec3-distance^2 (((ax ay az) a) ((bx by bz) b))
-    ((:returning-scalar t)
-     (:documentation "Returns the squared distance between two vectors."))
-  (+ (square (- ax bx)) (square (- ay by)) (square (- az bz))))
+(defvfun vec3-distance^2 ((a vec3) (b vec3)) scalar
+  "Returns the squared distance between two vectors."
+  (+ (square (- a.x b.x)) (square (- a.y b.y)) (square (- a.z b.z))))
 
-(defvecfun vec4-distance^2 (((ax ay az aw) a) ((bx by bz bw) b))
-    ((:returning-scalar t)
-     (:documentation "Returns the squared distance between two vectors."))
-  (+ (square (- ax bx)) (square (- ay by))
-     (square (- az bz)) (square (- aw bw))))
+(defvfun vec4-distance^2 ((a vec4) (b vec4)) scalar
+  "Returns the squared distance between two vectors."
+  (+ (square (- a.x b.x)) (square (- a.y b.y))
+     (square (- a.z b.z)) (square (- a.w b.w))))
 
-(defun vec-distance (a b)
+(defvfun vec-distance ((a vec) (b vec)) scalar
   "Returns the distance between two vectors."
-  (declare (type vec a b))
+  (:scalar-args-version nil)
   (sqrt (vec-distance^2 a b)))
 
-(defvecfun vec2-distance (((ax ay) a) ((bx by) b))
-    ((:returning-scalar t)
-     (:documentation "Returns the distance between two vectors."))
-  (sqrt (vec2-distance^2* ax ay bx by)))
+(defvfun vec2-distance ((a vec2) (b vec2)) scalar
+  "Returns the distance between two vectors."
+  (sqrt (vec2-distance^2* a.x a.y b.x b.y)))
 
-(defvecfun vec3-distance (((ax ay az) a) ((bx by bz) b))
-    ((:returning-scalar t)
-     (:documentation "Returns the distance between two vectors."))
-  (sqrt (vec3-distance^2* ax ay az bx by bz)))
+(defvfun vec3-distance ((a vec3) (b vec3)) scalar
+  "Returns the distance between two vectors."
+  (sqrt (vec3-distance^2* a.x a.y a.z b.x b.y b.z)))
 
-(defvecfun vec4-distance (((ax ay az aw) a) ((bx by bz bw) b))
-    ((:returning-scalar t)
-     (:documentation "Returns the distance between two vectors."))
-  (sqrt (vec4-distance^2* ax ay az aw bx by bz bw)))
+(defvfun vec4-distance ((a vec4) (b vec4)) scalar
+  "Returns the distance between two vectors."
+  (sqrt (vec4-distance^2* a.x a.y a.z a.w b.x b.y b.z b.w)))
 
 ;;;; * Vector Scaling
 ;;;
 
-
-(defun vec-rescale (v len &optional store)
+(defvfun vec-rescale ((v vec) len &optional (store vec)) vec
   "Scale the vector to a new magnitude."
   (vec-scale v (/ len (vec-magnitude v)) store))
 
-(defvecfun vec2-rescale (((x y) v) len)
-    ((:documentation "Scale the vector to a new magnitude."))
-  (vec2-scale* x y (/ len (vec2-magnitude* x y))))
+(defvfun vec2-rescale ((v vec2) len) vec2
+  "Scale the vector to a new magnitude."
+  (vec2-scale* v.x v.y (/ len (vec2-magnitude* v.x v.y))))
 
-(defvecfun vec3-rescale (((x y z) v) len)
-    ((:documentation "Scale the vector to a new magnitude."))
-  (vec3-scale* x y z (/ len (vec3-magnitude* x y z))))
+(defvfun vec3-rescale ((v vec3) len) vec3
+  "Scale the vector to a new magnitude."
+  (vec3-scale* v.x v.y v.z (/ len (vec3-magnitude* v.x v.y v.z))))
 
-(defvecfun vec4-rescale (((x y z w) v) len)
-    ((:documentation "Scale the vector to a new magnitude."))
-  (vec4-scale* x y z w (/ len (vec4-magnitude* x y z w))))
+(defvfun vec4-rescale ((v vec4) len) vec4
+  "Scale the vector to a new magnitude."
+  (vec4-scale* v.x v.y v.z v.w (/ len (vec4-magnitude* v.x v.y v.z v.w))))
 
 
 ;;;; * Vector truncation
 ;;;
 
-
-(defun vec-truncate (v len &optional store)
+(defvfun vec-truncate ((v vec) len &optional (store vec)) vec
   "Truncate the vector to a maximal magnitude."
   (let ((ms (vec-magnitude^2 v)))
     (if (> ms (square len))
         (vec-scale v (/ len (sqrt ms)) store)
         (vec-copy v store))))
 
-(defvecfun vec2-truncate (((x y) v) len)
-    ((:documentation "Truncate the vector to a maximal magnitude."))
-  (let ((ms (vec2-magnitude^2* x y)))
+(defvfun vec2-truncate ((v vec2) len) vec2
+  "Truncate the vector to a maximal magnitude."
+  (let ((ms (vec2-magnitude^2* v.x v.y)))
     (if (> ms (square len))
-        (vec2-scale* x y (/ len (sqrt ms)))
-        (values x y))))
+        (vec2-scale* v.x v.y (/ len (sqrt ms)))
+        (values v.x v.y))))
 
-(defvecfun vec3-truncate (((x y z) v) len)
-    ((:documentation "Truncate the vector to a maximal magnitude."))
-  (let ((ms (vec3-magnitude^2* x y z)))
+(defvfun vec3-truncate ((v vec3) len) vec3
+  "Truncate the vector to a maximal magnitude."
+  (let ((ms (vec3-magnitude^2* v.x v.y v.z)))
     (if (> ms (square len))
-        (vec3-scale* x y z (/ len (sqrt ms)))
-        (values x y z))))
+        (vec3-scale* v.x v.y v.z (/ len (sqrt ms)))
+        (values v.x v.y v.z))))
 
-(defvecfun vec4-truncate (((x y z w) v) len)
-    ((:documentation "Truncate the vector to a maximal magnitude."))
-  (let ((ms (vec4-magnitude^2* x y z w)))
+(defvfun vec4-truncate ((v vec4) len) vec4
+  "Truncate the vector to a maximal magnitude."
+  (let ((ms (vec4-magnitude^2* v.x v.y v.z v.w)))
     (if (> ms (square len))
-        (vec4-scale* x y z w (/ len (sqrt ms)))
-        (values x y z w))))
+        (vec4-scale* v.x v.y v.z v.w (/ len (sqrt ms)))
+        (values v.x v.y v.z v.w))))
 
 
 ;;;; * Vector Normalization
 ;;;
 
-(defun vec-normalize (v &optional store)
+(defvfun vec-normalize ((v vec) &optional (store vec)) vec
   "Normalize the vector, scale to magnitude one."
   (vec-scale v (inverse-sqrt (vec-magnitude^2 v)) store))
 
-(defvecfun vec2-normalize (((x y) v))
-    ((:documentation "Normalize the vector, scale to magnitude one."))
-  (vec2-scale* x y (inverse-sqrt (vec2-magnitude^2* x y ))))
+(defvfun vec2-normalize ((v vec2)) vec2
+  "Normalize the vector, scale to magnitude one."
+  (vec2-scale* v.x v.y (inverse-sqrt (vec2-magnitude^2* v.x v.y))))
 
-(defvecfun vec3-normalize (((x y z) v))
-    ((:documentation "Normalize the vector, scale to magnitude one."))
-  (vec3-scale* x y z (inverse-sqrt (vec3-magnitude^2* x y z))))
+(defvfun vec3-normalize ((v vec3)) vec3
+  "Normalize the vector, scale to magnitude one."
+  (vec3-scale* v.x v.y v.z (inverse-sqrt (vec3-magnitude^2* v.x v.y v.z))))
 
-(defvecfun vec4-normalize (((x y z w) v))
-    ((:documentation "Normalize the vector, scale to magnitude one."))
-  (vec4-scale* x y z w (inverse-sqrt (vec4-magnitude^2* x y z w))))
+(defvfun vec4-normalize ((v vec4)) vec4
+  "Normalize the vector, scale to magnitude one."
+  (vec4-scale* v.x v.y v.z v.w (inverse-sqrt (vec4-magnitude^2* v.x v.y v.z v.w))))
 
 
 ;;;; * Angle between two Vectors
 ;;;
 
-(defun vec-angle (a b)
-  (declare (type vec a b))
+(defvfun vec-angle ((a vec) (b vec)) scalar
+  (:scalar-args-version nil)
   (acos (/ (vec-dot a b) (vec-magnitude a) (vec-magnitude b))))
 
-(defvecfun vec2-angle (((ax ay) a) ((bx by) b))
-    ((:returning-scalar t)
-     (:documentation "Return the angle between two vectors in radians."))
-  (abs (atan (- (* ax by) (* ay bx))
-             (vec2-dot* ax ay bx by))))
+(defvfun vec2-angle ((a vec2) (b vec2)) scalar
+  "Return the angle between two vectors in radians."
+  (abs (atan (- (* a.x b.y) (* a.y b.x))
+             (vec2-dot* a.x a.y b.x b.y))))
 
-(defvecfun vec3-angle (((ax ay az) a) ((bx by bz) b))
-    ((:returning-scalar t)
-     (:documentation "Return the angle between two vectors in radians."))
-  (multiple-value-bind (x y z)
-      (vec3-cross* ax ay az bx by bz)
-    (abs (atan (vec3-magnitude* x y z)
-               (vec3-dot* ax ay az bx by bz)))))
+(defvfun vec3-angle ((a vec3) (b vec3)) scalar
+  "Return the angle between two vectors in radians."
+  (abs (atan (multiple-value-call #'vec3-magnitude*
+               (vec3-cross* a.x a.y a.z b.x b.y b.z))
+             (vec3-dot* a.x a.y a.z b.x b.y b.z))))
 
 
 ;;;; * Vector Interpolation
 ;;;
 
-(defun vec-interpolate (a b alpha &optional store)
+(defvfun vec-interpolate ((a vec) (b vec) alpha &optional (store vec)) vec
   "Interpolate a vector from vector `a' to vector `b',
 depending on the interpolation factor alpha."
+  (:scalar-args-version nil)
   (let ((beta (invert alpha)))
     (map-into (vec-ensure-store a store)
               #'(lambda (m n)
@@ -637,28 +397,28 @@ depending on the interpolation factor alpha."
                      (* n alpha)))
               a b)))
 
-(defvecfun vec2-interpolate (((ax ay) a) ((bx by) b) alpha)
-    ((:documentation "Interpolate a vector from vector `a' to vector `b',
-depending on the interpolation factor alpha."))
+(defvfun vec2-interpolate ((a vec2) (b vec2) alpha) vec2
+  "Interpolate a vector from vector `a' to vector `b',
+depending on the interpolation factor alpha."
   (let ((beta (invert alpha)))
-    (values (+ (* ax beta) (* bx alpha))
-            (+ (* ay beta) (* by alpha)))))
+    (values (+ (* a.x beta) (* b.x alpha))
+            (+ (* a.y beta) (* b.y alpha)))))
 
-(defvecfun vec3-interpolate (((ax ay az) a) ((bx by bz) b) alpha)
-    ((:documentation "Interpolate a vector from vector `a' to vector `b',
-depending on the interpolation factor alpha."))
+(defvfun vec3-interpolate ((a vec3) (b vec3) alpha) vec3
+  "Interpolate a vector from vector `a' to vector `b',
+depending on the interpolation factor alpha."
   (let ((beta (invert alpha)))
-    (values (+ (* ax beta) (* bx alpha))
-            (+ (* ay beta) (* by alpha))
-            (+ (* az beta) (* bz alpha)))))
+    (values (+ (* a.x beta) (* b.x alpha))
+            (+ (* a.y beta) (* b.y alpha))
+            (+ (* a.z beta) (* b.z alpha)))))
 
-(defvecfun vec4-interpolate (((ax ay az aw) a) ((bx by bz bw) b) alpha)
-    ((:documentation "Interpolate a vector from vector `a' to vector `b',
-depending on the interpolation factor alpha."))
+(defvfun vec4-interpolate ((a vec4) (b vec4) alpha) vec4
+  "Interpolate a vector from vector `a' to vector `b',
+depending on the interpolation factor alpha."
   (let ((beta (invert alpha)))
-    (values (+ (* ax beta) (* bx alpha))
-            (+ (* ay beta) (* by alpha))
-            (+ (* az beta) (* bz alpha))
-            (+ (* aw beta) (* bw alpha)))))
+    (values (+ (* a.x beta) (* b.x alpha))
+            (+ (* a.y beta) (* b.y alpha))
+            (+ (* a.z beta) (* b.z alpha))
+            (+ (* a.w beta) (* b.w alpha)))))
 
 ;;; vector.lisp ends here

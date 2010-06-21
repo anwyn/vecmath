@@ -1,33 +1,27 @@
 ;;; -*- lisp -*-
 
-(eval-when (:compile-toplevel :load-toplevel :execute)
-  (unless (find-package '#:vecmath-system)
-    (defpackage #:vecmath-system
-      (:use :common-lisp :asdf))))
-
-(in-package #:vecmath-system)
-
-(defsystem :vecmath 
-  :description "Simple 2d and 3d vector and matrix math library." 
-  :long-description "Simple 2d and 3d vector and matrix math library." 
+(defsystem :vecmath
+  :description "Simple 2d and 3d vector and matrix math library."
+  :long-description "Simple 2d and 3d vector and matrix math library."
   :version "0.1"
   :author "Ole Arndt <ole@sugarshark.com"
   :maintainer "Ole Arndt <ole@sugarshark.com>"
   :licence "BSD"
-  :depends-on ()
+  :depends-on (:alexandria)
   :in-order-to ((test-op (load-op #:vecmath-test)))
   :perform (test-op :after (op c)
-                    (funcall (intern (string '#:vecmath-tests)
-                                     '#:vecmath-test)))
+                    (funcall (intern (string '#:vecmath-tests) '#:vecmath-test)))
   :components ((:doc-file "README")
                (:static-file "vecmath.asd")
                (:module "src"
                         :components ((:file "packages")
-                                     (:file "vecmath"      :depends-on ("packages"))
-                                     (:file "vector"       :depends-on ("vecmath"))
-                                     (:file "matrix"       :depends-on ("vector"))
-                                     (:file "quat"         :depends-on ("matrix"))
-                                     (:file "axis-angle"   :depends-on ("quat"))))))
+                                     (:file "util"       :depends-on ("packages"))
+                                     (:file "vecmath"    :depends-on ("util"))
+                                     (:file "types"      :depends-on ("vecmath"))
+                                     (:file "vector"     :depends-on ("types"))
+                                     (:file "matrix"     :depends-on ("vector"))
+                                     (:file "quat"       :depends-on ("matrix"))
+                                     (:file "axis-angle" :depends-on ("quat"))))))
 
 (defsystem :vecmath-test
   :components ((:module "test"
@@ -36,9 +30,6 @@
                                      (:file "matrix-tests" :depends-on ("suite"))
                                      (:file "quat-tests"   :depends-on ("suite")))))
   :depends-on (:vecmath :stefil))
-
-(defmethod operation-done-p ((o test-op) (c (eql (find-system :vecmath))))
-  (values nil))
 
 ;;;; * Introduction
 ;;;;
