@@ -27,21 +27,24 @@ neighboring VAR increased by one for each symbol without an explicit
 offset value.
 "
   (let ((vec (gensym))
-        (index-counter 0))
+        (index-counter 0)
+        (index-var nil))
     (declare (type fixnum index-counter))
     `(let ((,vec ,vector))
        (declare (ignorable ,vec))
        (symbol-macrolet ,(mapcar (lambda (var-entry)
-                                   (let ((var-name
-                                          (if (symbolp var-entry)
-                                              var-entry
-                                              (car var-entry)))
-                                         (index
-                                          (if (symbolp var-entry)
-                                              index-counter
-                                              (cadr var-entry))))
-                                     (declare (type fixnum index))
-                                     (setf index-counter (1+ index))
+                                   (let ((var-name (ensure-car var-entry))
+                                         (index (if (symbolp var-entry)
+                                                    (if index-var
+                                                        `(+ ,index-counter ,index-var)
+                                                        index-counter)
+                                                    (let ((idx (cadr var-entry)))
+                                                      (if (symbolp idx)
+                                                          (prog1 (setf index-var idx)
+                                                            (setf index-counter 0))
+                                                          (prog1 (setf index-counter idx)
+                                                            (setf index-var nil)))))))
+                                     (incf index-counter)
                                      `(,var-name
                                        (row-major-aref ,vec ,index))))
                                  vars)

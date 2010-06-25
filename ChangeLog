@@ -1,5 +1,0 @@
-2009-08-11  Ole Arndt  <ole@sugarshark.com>
-
-	* vecmath.asd: (operation-done-p): deleted. Default implementation
-	does the right thing.
-
