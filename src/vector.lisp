@@ -10,6 +10,7 @@
 
 (in-package :vecmath)
 
+
 ;;;; ---------------------------------------------------------------------------
 ;;;; * Definition of vector types
 
@@ -23,6 +24,7 @@
 (defvector vec4
     (x y z (w 1.0)))
 
+;;;; ---------------------------------------------------------------------------
 ;;;; * Vector Constants
 ;;;
 
@@ -31,6 +33,7 @@
 (defparameter +vec3-y-axis+ (vec3 +scalar-zero+ +scalar-one+ +scalar-zero+))
 (defparameter +vec3-z-axis+ (vec3 +scalar-zero+ +scalar-zero+ +scalar-one+))
 
+;;;; ---------------------------------------------------------------------------
 ;;;; * Functions for vectors of arbitrary length.
 ;;;
 
@@ -77,6 +80,7 @@ with all elements initialized to zero."
   (declare (type vec template) (type (or null vec) store))
   (the vec (or store (copy-seq template))))
 
+;;;; ---------------------------------------------------------------------------
 ;;;; * Vector Multiplication
 ;;;
 

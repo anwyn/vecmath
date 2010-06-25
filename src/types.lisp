@@ -98,47 +98,49 @@
       (setf (get ',type 'slot-list) ',(mapcar #'ensure-car slots))
       (setf (get ',type 'element-type) ',element-type))))
 
+(defun add-offset (offset slots)
+  (cons (list (first slots) offset) (rest slots)))
+
 (defun emit-converters (type slots)
   "Emit converting functions."
   (let ((vec (gensym "V"))
         (unique-slots (mapcar #'(lambda (slot)
-                                  (gensym (string (ensure-car slot))))
+                                  (symbolicate (ensure-car slot)))
                               slots))
         (vec->values (symbolicate type '#:->values))
         (vec<-values (symbolicate type '#:<-values))
         (vec<-values! (symbolicate type '#:<-values!))
-        (cloner (symbolicate type '#:-clone))
-        (copier (symbolicate type '#:-copy)))
-    (list `(defmacro ,vec->values (v)
-             (list 'with-elements ',unique-slots v
-                   '(values ,@unique-slots)))
+        (cloner (symbolicate type '#:-copy))
+        (copier (symbolicate type '#:-copy!)))
+    `((defmacro ,vec->values (v &key (offset 0))
+        "Convert a vec to multiple values starting from an offset into the vector."
+        (list 'with-elements (add-offset offset ',unique-slots) v
+              '(values ,@unique-slots)))
 
-          `(defmacro ,vec<-values (form)
-             (list 'multiple-value-bind ',unique-slots form
-                   '(,type ,@unique-slots)))
+      (defmacro ,vec<-values (form)
+        "Make a vec from multiple values."
+        (list 'multiple-value-bind ',unique-slots form
+              '(,type ,@unique-slots)))
 
-          `(defmacro ,vec<-values! (v form)
-             (list 'let (list (list ',vec (list 'or v (list ',type))))
-                   (list 'with-elements ',unique-slots ',vec
-                         (list 'multiple-value-setq ',unique-slots form) ',vec)))
+      (defmacro ,vec<-values! (v form &key (offset 0))
+        "Set a vec from multiple values starting from an offset into the vector."
+        (list 'let (list (list ',vec (list 'or v (list ',type))))
+              (list 'with-elements (add-offset offset ',unique-slots) ',vec
+                    (list 'setf (cons 'values ',unique-slots) form) ',vec)))
 
-          `(declaim (inline ,cloner ,copier)
-                    (ftype (function (,type) ,type) ,cloner)
-                    (ftype (function (,type &optional (or null ,type)) ,type) ,copier))
+      (declaim (inline ,cloner ,copier))
 
-          `(defun ,cloner (v)
-             "Clone vector V."
-             (declare (type ,type v)
-                      ,*optimization*)
-             (with-elements ,unique-slots v
-               (,type ,@unique-slots)))
+      (defun ,cloner (v &key (offset 0))
+        "Clone a vector from the source vector V with offset."
+        (declare (type vec v))
+        (with-elements ,(add-offset 'offset unique-slots) v
+          (,type ,@unique-slots)))
 
-          `(defun ,copier (a &optional b)
-             "Copy vector A into vector B. When B is nil, an new vector will be made.
-Returns B or the new vector."
-             (declare (type ,type a) (type (or null ,type) b)
-                      ,*optimization*)
-             (,vec<-values! b (,vec->values a))))))
+      (defun ,copier (source target &key (source-offset 0) (target-offset 0))
+        "Copy vector SOURCE into vector TARGET. Returns TARGET."
+        (declare (type vec source target))
+        (,vec<-values! target (,vec->values source :offset source-offset)
+                       :offset target-offset)))))
 
 ;;;; -------------------------------------------------------------------------
 ;;;; * Vector type defining macro
@@ -188,8 +190,8 @@ Returns B or the new vector."
   `((defun ,name ,(mapcar #'ensure-car args)
       ,doc
       (with-vectors ,args
-        (multiple-value-setq ,(expand-vector-arg (first args))
-          (progn ,@body)))
+        (setf ,(cons 'values (expand-vector-arg (first args)))
+              (progn ,@body)))
       ,(ensure-car (first args)))))
 
 ;;;; ---------------------------------------------------------------------------

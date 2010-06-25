@@ -52,9 +52,6 @@
      dx dy dz (dw 1.0)))
 
 
-(defvfun mat3-column-a ((m mat3)) vec3
-  (values m.ax m.ay m.az))
-
 (declaim (inline mat-ensure-store))
 (defun mat-ensure-store (template &optional store)
   (declare (type mat template) (type (or null mat) store))
