@@ -26,6 +26,11 @@
 
 (setf (get 'vec 'element-type) 'scalar)
 
+(declaim (inline vec))
+(defun vec (&rest args)
+  (make-array (length args) :element-type 'scalar
+              :initial-contents (mapcar #'ensure-scalar args)))
+
 ;;;; ---------------------------------------------------------------------------
 ;;;; * Macro Definitions
 
