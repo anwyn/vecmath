@@ -49,7 +49,10 @@
     (values (+ x (* s b.x) (* r a.x))
             (+ y (* s b.y) (* r a.y))
             (+ z (* s b.z) (* r a.z))
-            (- (* s r) (+ (* a.x b.x) (* a.y b.y) (* a.z b.z))))))
+            (- (* s r)
+               (+ (* a.x b.x)
+                  (* a.y b.y)
+                  (* a.z b.z))))))
 
 (defvfun quat-magnitude^2 ((q quat)) scalar
   "Returns the squared length of the quaternion."
@@ -61,11 +64,13 @@
 
 (defvfun quat-normalize ((q quat)) quat
   "Normalize quaternion."
-  (vec4-scale* q.x q.y q.z q.w (inverse-sqrt (quat-magnitude^2* q.x q.y q.z q.w))))
+  (vec4-scale* q.x q.y q.z q.w
+               (inverse-sqrt (quat-magnitude^2* q.x q.y q.z q.w))))
 
 (defvfun quat-axis ((q quat)) vec3
   "Returns the axis of the rotation this quaternion represents."
-  (vec3-scale* q.x q.y q.z (inverse-sqrt (quat-magnitude^2* q.x q.y q.z q.w))))
+  (vec3-scale* q.x q.y q.z
+               (inverse-sqrt (quat-magnitude^2* q.x q.y q.z q.w))))
 
 (defvfun quat-angle ((q quat)) scalar
   "Returns the angle of the rotation this quaternion represents."
