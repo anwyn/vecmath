@@ -31,19 +31,26 @@
 ;;;
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  (declaim (ftype (function (number) scalar) ensure-scalar))
-  (declaim (inline ensure-scalar scalarp))
+  (declaim (ftype (function (number) scalar) scalar))
+  (declaim (inline scalar scalarp ensure-saclar))
 
   (setf (get 'scalar 'element-type) 'scalar)
 
+  (defun scalarp (s)
+    (typep s 'scalar))
+
   (defun scalar (s)
-    (coerce s 'scalar))
+    (if (scalarp s)
+        s
+        (coerce s 'scalar)))
 
   (defun ensure-scalar (s)
-    (coerce s 'scalar))
+    (scalar s))
 
-  (defun scalarp (s)
-    (typep s 'scalar)))
+  (define-compiler-macro ensure-scalar (&whole form s)
+    (cond ((scalarp s) s)
+          ((numberp s) (scalar s))
+          (t form))))
 
 (declaim (ftype (function (scalar) scalar) invert half inverse-sqrt square))
 (declaim (inline invert half inverse-sqrt lerp square))
@@ -52,13 +59,6 @@
   "Return one over scalar."
   (the scalar (/ +scalar-one+ s)))
 
-(define-compiler-macro invert (&whole form s)
-  (cond ((and (constantp s) (numberp s) (not (typep s 'scalar)))
-         `(invert ,(ensure-scalar s)))
-        (t
-         `(,@form))))
-
-
 (defun half (s)
   "Return half the value."
   (the scalar (* +scalar-half+ s)))
@@ -66,12 +66,6 @@
 (defun inverse-sqrt (s)
   "Take the inverse square root of a scalar."
   (invert (the scalar (sqrt (abs s)))))
-
-(define-compiler-macro inverse-sqrt (&whole form s)
-  (cond ((and (constantp s) (numberp s) (not (typep s 'scalar)))
-         `(inverse-sqrt ,(ensure-scalar s)))
-        (t
-         `(,@form))))
 
 (defun lerp (delta low high)
   "Linearly interpolate between low and high."
@@ -84,4 +78,4 @@
            (optimize (speed 3)))
   (the scalar (* s s)))
 
- ;;; vecmath.lisp ends here
+;;; vecmath.lisp ends here

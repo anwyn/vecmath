@@ -13,13 +13,13 @@
 
 (in-package :vecmath)
 
-;;;; * Vector Types
-;;;
-
 ;;;; ---------------------------------------------------------------------------
 ;;;; * Type definitions
 
-;;; A vector of arbitrary length with element type scalar
+;;;; ---------------------------------------------------------------------------
+;;;; ** A vector type
+;;;;
+;;;; A vector of arbitrary length with element type scalar
 
 (deftype vec (&optional len (element-type 'scalar))
   `(simple-array ,element-type (,len)))
@@ -27,7 +27,23 @@
 (setf (get 'vec 'element-type) 'scalar)
 
 ;;;; ---------------------------------------------------------------------------
-;;;; * Macro Definitions
+;;;; ** A square matrix type
+
+(defun square-matrix-p(a)
+  (let ((len (length a)))
+    (= (isqrt len) (sqrt len))))
+
+;;; A column major square matrix with element type scalar
+(deftype mat (&optional dimension (element-type 'scalar))
+  `(and (simple-array ,element-type (,(if (eq '* dimension)
+                                          dimension
+                                          (* dimension dimension))))
+        (satisfies square-matrix-p)))
+
+(setf (get 'mat 'element-type) 'scalar)
+
+;;;; ---------------------------------------------------------------------------
+;;;; * Macro definitions
 
 (defun expand-vector-arg (vec &optional slot-list)
   (let ((sym (ensure-car vec))
@@ -263,20 +279,5 @@ Multiple values version. Takes individual vector components as arguments
 and returns the result as multiple values.")
                                                     body))))))))))
 
-;;;; ---------------------------------------------------------------------------
-;;;; * Matrix Type
-
-(defun square-matrix-p(a)
-  (let ((len (length a)))
-    (= (isqrt len) (sqrt len))))
-
-;;; A column major square matrix with element type scalar
-(deftype mat (&optional dimension (element-type 'scalar))
-  `(and (simple-array ,element-type (,(if (eq '* dimension)
-                                          dimension
-                                          (* dimension dimension))))
-        (satisfies square-matrix-p)))
-
-(setf (get 'mat 'element-type) 'scalar)
 
 ;;; types.lisp ends here
