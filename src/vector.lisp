@@ -125,6 +125,7 @@ with all elements initialized to zero."
   (vec4-scale* v.x v.y v.z v.w (invert s)))
 
 
+;;;; ---------------------------------------------------------------------------
 ;;;; * Vector Negation
 ;;;
 
@@ -144,6 +145,7 @@ with all elements initialized to zero."
   "Invert the vector, multiply all elements with -1. "
   (vec4-scale* v.x v.y v.z v.w +scalar-minus-one+))
 
+;;;; ---------------------------------------------------------------------------
 ;;;; * Vector Addition and Substraction
 ;;;
 
@@ -181,6 +183,7 @@ with all elements initialized to zero."
   (values (+ a.x b.x) (+ a.y b.y) (+ a.z b.z) (+ a.w b.w)))
 
 
+;;;; ---------------------------------------------------------------------------
 ;;;; * Vector Dot Product
 ;;;
 
@@ -206,6 +209,7 @@ with all elements initialized to zero."
   (+ (* a.x b.x) (* a.y b.y) (* a.z b.z) (* a.w b.w)))
 
 
+;;;; ---------------------------------------------------------------------------
 ;;;; * Vector Cross Product
 ;;;
 
@@ -220,6 +224,7 @@ with all elements initialized to zero."
           (- (* a.z b.x) (* a.x b.z))
           (- (* a.x b.y) (* a.y b.x))))
 
+;;;; ---------------------------------------------------------------------------
 ;;;; * Vector Length
 ;;;
 
@@ -258,6 +263,7 @@ with all elements initialized to zero."
   (sqrt (vec4-magnitude^2* v.x v.y v.z v.w)))
 
 
+;;;; ---------------------------------------------------------------------------
 ;;;; * The Distance Between two Vectors
 ;;;
 
@@ -296,6 +302,7 @@ with all elements initialized to zero."
   "Returns the distance between two vectors."
   (sqrt (vec4-distance^2* a.x a.y a.z a.w b.x b.y b.z b.w)))
 
+;;;; ---------------------------------------------------------------------------
 ;;;; * Vector Scaling
 ;;;
 
@@ -316,6 +323,7 @@ with all elements initialized to zero."
   (vec4-scale* v.x v.y v.z v.w (/ len (vec4-magnitude* v.x v.y v.z v.w))))
 
 
+;;;; ---------------------------------------------------------------------------
 ;;;; * Vector truncation
 ;;;
 
@@ -348,6 +356,7 @@ with all elements initialized to zero."
         (values v.x v.y v.z v.w))))
 
 
+;;;; ---------------------------------------------------------------------------
 ;;;; * Vector Normalization
 ;;;
 
@@ -357,17 +366,21 @@ with all elements initialized to zero."
 
 (defvfun vec2-normalize ((v vec2)) vec2
   "Normalize the vector, scale to magnitude one."
-  (vec2-scale* v.x v.y (inverse-sqrt (vec2-magnitude^2* v.x v.y))))
+  (vec2-scale* v.x v.y
+               (inverse-sqrt (vec2-magnitude^2* v.x v.y))))
 
 (defvfun vec3-normalize ((v vec3)) vec3
   "Normalize the vector, scale to magnitude one."
-  (vec3-scale* v.x v.y v.z (inverse-sqrt (vec3-magnitude^2* v.x v.y v.z))))
+  (vec3-scale* v.x v.y v.z
+               (inverse-sqrt (vec3-magnitude^2* v.x v.y v.z))))
 
 (defvfun vec4-normalize ((v vec4)) vec4
   "Normalize the vector, scale to magnitude one."
-  (vec4-scale* v.x v.y v.z v.w (inverse-sqrt (vec4-magnitude^2* v.x v.y v.z v.w))))
+  (vec4-scale* v.x v.y v.z v.w
+               (inverse-sqrt (vec4-magnitude^2* v.x v.y v.z v.w))))
 
 
+;;;; ---------------------------------------------------------------------------
 ;;;; * Angle between two Vectors
 ;;;
 
@@ -387,6 +400,7 @@ with all elements initialized to zero."
              (vec3-dot* a.x a.y a.z b.x b.y b.z))))
 
 
+;;;; ---------------------------------------------------------------------------
 ;;;; * Vector Interpolation
 ;;;
 
@@ -424,5 +438,6 @@ depending on the interpolation factor alpha."
             (+ (* a.y beta) (* b.y alpha))
             (+ (* a.z beta) (* b.z alpha))
             (+ (* a.w beta) (* b.w alpha)))))
+
 
 ;;; vector.lisp ends here
