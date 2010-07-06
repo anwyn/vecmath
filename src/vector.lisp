@@ -82,6 +82,22 @@ with all elements initialized to zero."
   (declare (type vec template) (type (or null vec) store))
   (the vec (or store (copy-seq template))))
 
+
+(defmacro swizzle* (v &rest accessors)
+  `(with-elements ((x 0) y z w
+                   (r 0) g b a
+                   (s 0) t p q) ,v
+     (values ,@accessors)))
+
+(defmacro swizzle (v &rest accessors)
+
+  `(with-elements ((x 0) y z w
+                   (r 0) g b a
+                   (s 0) t p q) ,v
+     ,@(if (= 1 (length accessors))
+           accessors
+           (list (cons 'vec accessors)))))
+
 ;;;; ---------------------------------------------------------------------------
 ;;;; * Vector Multiplication
 ;;;
