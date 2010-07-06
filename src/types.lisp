@@ -31,6 +31,11 @@
   (make-array (length args) :element-type 'scalar
               :initial-contents (mapcar #'ensure-scalar args)))
 
+(define-compiler-macro vec (&whole form &rest args)
+  (cond ((every #'numberp args)
+         (apply #'vec args))
+        (t form)))
+
 ;;;; ---------------------------------------------------------------------------
 ;;;; ** A square matrix type
 
@@ -38,7 +43,7 @@
   (let ((len (length a)))
     (= (isqrt len) (sqrt len))))
 
-;;; A column major square matrix with element type scalar
+;;; A square matrix with element type scalar
 (deftype mat (&optional dimension (element-type 'scalar))
   `(and (simple-array ,element-type (,(if (eq '* dimension)
                                           dimension
@@ -46,6 +51,14 @@
         (satisfies square-matrix-p)))
 
 (setf (get 'mat 'element-type) 'scalar)
+
+(declaim (inline mat))
+(defun mat (&rest args)
+  (if (square-matrix-p args)
+      (apply #'vec args)
+      (error 'simple-error
+             :format-control "arglist must fit a square matrix
+and be of length (* dimension dimension)")))
 
 ;;;; ---------------------------------------------------------------------------
 ;;;; * Macro definitions
@@ -75,13 +88,11 @@
     (if slot-list
         `(let ((,name ,init))
            (declare (type (or null vec) ,name) (ignorable ,name))
-           ;; (declare (ignorable ,name))
            (with-elements ,(expand-vector-arg (list name type) slot-list)
              ,name
              ,@body))
         `(let ((,name ,init))
            (declare (type (or null ,type) ,name) (ignorable ,name))
-           ;; (declare (ignorable ,name))
            ,@body))))
 
 (defmacro with-vectors ((&rest forms) &body body)
@@ -99,20 +110,24 @@
 
 (defun emit-type-declaration (type element-type slots)
   "Emit the vector type declaration."
-  (let ((len (length slots)))
-    `((declaim (inline ,type))
-      (deftype ,type (&optional (element-type 'scalar))
+  (let ((len (length slots))
+        (args (mapcar #'ensure-car slots)))
+    `((deftype ,type (&optional (element-type 'scalar))
         ,(list 'list ''vec len 'element-type))
+
+      (declaim (inline ,type))
+
       (defstruct (,type
                    (:type (vector ,element-type))
                    (:copier nil)
                    (:constructor)
-                   (:constructor ,type ,(cons '&optional (mapcar #'ensure-car slots))))
+                   (:constructor ,type ,(cons '&optional args)))
         ,@(mapcar (lambda (s)
                     (list (ensure-car s)
                           (coerce (ensure-cadr s 0) element-type)
                           ':type element-type))
            slots)))))
+
 
 (defun emit-meta-data (type element-type slots)
   `((eval-when (:compile-toplevel :load-toplevel :execute)
