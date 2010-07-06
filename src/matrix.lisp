@@ -10,31 +10,9 @@
 
 (in-package :vecmath)
 
-(defmacro with-matrix-rows (slots vector &body body)
-  (let ((vec (gensym))
-        (index-counter 0))
-    `(let ((,vec ,vector))
-       (declare (ignorable ,vec))
-       ,@(let ((vector (if (and (consp vector) (eq (car vector) 'the))
-                           (third vector)
-                           vector)))
-              (and (symbolp vector)
-                   `((declare (%variable-rebinding ,vec ,vector)))))
-       ,vec
-       (macrolet ,(mapcar (lambda (slot-entry)
-                            (let ((var-name
-                                   (if (symbolp slot-entry)
-                                       slot-entry
-                                       (car slot-entry)))
-                                  (index
-                                   (if (symbolp slot-entry)
-                                       index-counter
-                                       (cadr slot-entry))))
-                              (setf index-counter (1+ index))
-                              `(,var-name (n)
-                                          (list 'aref ',vec ,index n))))
-                          slots)
-         ,@body))))
+;;;; ----------------------------------------------------------------------------
+;;;; * Matrix types
+;;;;
 
 (defvector mat2
     ((ax 1.0) ay
