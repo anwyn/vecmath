@@ -15,19 +15,19 @@
 ;;;;
 
 (defvector mat2
-    ((ax 1.0) ay
-     bx       (by 1.0)))
+    ((ux 1.0) uy
+     vx (vy 1.0)))
 
 (defvector mat3
-    ((ax 1.0) ay      az
-      bx     (by 1.0) bz
-      cx      cy      (cz 1.0)))
+    ((ux 1.0) uy      uz
+     vx     (vy 1.0) vz
+     wx      wy      (wz 1.0)))
 
 (defvector mat4
-    ((ax 1.0) ay az aw
-     bx (by 1.0) bz bw
-     cx cy (cz 1.0) cw
-     dx dy dz (dw 1.0)))
+    ((ux 1.0) uy uz uw
+     vx (vy 1.0) vz vw
+     wx wy (wz 1.0) ww
+     tx ty tz (tw 1.0)))
 
 
 (declaim (inline mat-ensure-store))
@@ -53,20 +53,20 @@
 
 (defvfun mat2-scale ((m mat2) s) mat2
   "Multiplicate a two dimensional matrix with a scalar."
-  (values (* m.ax s) (* m.ay s) (* m.bx s) (* m.by s)))
+  (values (* m.ux s) (* m.uy s) (* m.vx s) (* m.vy s)))
 
 (defvfun mat3-scale ((m mat3) s) mat3
   "Multiplicate a three dimensional matrix with a scalar."
-  (values (* m.ax s) (* m.ay s) (* m.az s)
-          (* m.bx s) (* m.by s) (* m.bz s)
-          (* m.cx s) (* m.cy s) (* m.cz s)))
+  (values (* m.ux s) (* m.uy s) (* m.uz s)
+          (* m.vx s) (* m.vy s) (* m.vz s)
+          (* m.wx s) (* m.wy s) (* m.wz s)))
 
 (defvfun mat4-scale ((m mat4) s) mat4
   "Multiplicate a matrix in homogenous space with a scalar."
-  (values (* m.ax s) (* m.ay s) (* m.az s) (* m.aw s)
-          (* m.bx s) (* m.by s) (* m.bz s) (* m.bw s)
-          (* m.cx s) (* m.cy s) (* m.cz s) (* m.cw s)
-          (* m.dx s) (* m.dy s) (* m.dz s) (* m.dw s)))
+  (values (* m.ux s) (* m.uy s) (* m.uz s) (* m.uw s)
+          (* m.vx s) (* m.vy s) (* m.vz s) (* m.vw s)
+          (* m.wx s) (* m.wy s) (* m.wz s) (* m.ww s)
+          (* m.tx s) (* m.ty s) (* m.tz s) (* m.tw s)))
 
 
 ;;;; * Matrix Multiplication
@@ -74,71 +74,71 @@
 
 (defvfun mat-mul ((m mat) (n mat) &optional (store mat)) mat
   "Concatenate two matrices by multiplying them."
-  (let ((rows (isqrt (length m)))
+  (let ((dim (isqrt (array-dimension m 0)))
         (m (if (eq store m) (vec-copy m) m))
         (n (if (eq store n) (vec-copy n) n))
         (dst (mat-ensure-store m store)))
-    (loop for i from 0 below rows do
-         (loop for j from 0 below rows do
-              (setf (row-major-aref dst (+ (* i rows) j))
-                    (loop for k from 0 below rows
-                       sum (* (row-major-aref m (+ (* i rows) k))
-                              (row-major-aref n (+ (* k rows) j))))))
+    (loop for i from 0 below dim do
+         (loop for j from 0 below dim do
+              (setf (row-major-aref dst (+ (* i dim) j))
+                    (loop for k from 0 below dim
+                       sum (* (row-major-aref m (+ (* i dim) k))
+                              (row-major-aref n (+ (* k dim) j))))))
          finally (return dst))))
 
 (defvfun mat2-mul ((m mat2) (n mat2)) mat2
   "Concatenate two matrices by multiplying them."
   (:scalar-args-version nil)
-  (values (+ (* m.ax n.ax) (* m.ay n.bx))
-          (+ (* m.ax n.ay) (* m.ay n.by))
-          (+ (* m.bx n.ax) (* m.by n.bx))
-          (+ (* m.bx n.ay) (* m.by n.by))))
+  (values (+ (* m.ux n.ux) (* m.uy n.vx))
+          (+ (* m.ux n.uy) (* m.uy n.vy))
+          (+ (* m.vx n.ux) (* m.vy n.vx))
+          (+ (* m.vx n.uy) (* m.vy n.vy))))
 
 (defvfun mat3-mul ((m mat3) (n mat3)) mat3
   "Concatenate two matrices by multiplying them."
   (:scalar-args-version nil)
-  (values (+ (* m.ax n.ax) (* m.ay n.bx) (* m.az n.cx))
-          (+ (* m.ax n.ay) (* m.ay n.by) (* m.az n.cy))
-          (+ (* m.ax n.az) (* m.ay n.bz) (* m.az n.cz))
-          (+ (* m.bx n.ax) (* m.by n.bx) (* m.bz n.cx))
-          (+ (* m.bx n.ay) (* m.by n.by) (* m.bz n.cy))
-          (+ (* m.bx n.az) (* m.by n.bz) (* m.bz n.cz))
-          (+ (* m.cx n.ax) (* m.cy n.bx) (* m.cz n.cx))
-          (+ (* m.cx n.ay) (* m.cy n.by) (* m.cz n.cy))
-          (+ (* m.cx n.az) (* m.cy n.bz) (* m.cz n.cz))))
+  (values (+ (* m.ux n.ux) (* m.uy n.vx) (* m.uz n.wx))
+          (+ (* m.ux n.uy) (* m.uy n.vy) (* m.uz n.wy))
+          (+ (* m.ux n.uz) (* m.uy n.vz) (* m.uz n.wz))
+          (+ (* m.vx n.ux) (* m.vy n.vx) (* m.vz n.wx))
+          (+ (* m.vx n.uy) (* m.vy n.vy) (* m.vz n.wy))
+          (+ (* m.vx n.uz) (* m.vy n.vz) (* m.vz n.wz))
+          (+ (* m.wx n.ux) (* m.wy n.vx) (* m.wz n.wx))
+          (+ (* m.wx n.uy) (* m.wy n.vy) (* m.wz n.wy))
+          (+ (* m.wx n.uz) (* m.wy n.vz) (* m.wz n.wz))))
 
 (defvfun mat3-tmul ((m mat3) (n mat3)) mat3
   "Concatenate two matrices with the left one transposed."
   (:scalar-args-version nil)
-  (values (+ (* m.ax n.ax) (* m.bx n.bx) (* m.cx n.cx))
-          (+ (* m.ax n.ay) (* m.bx n.by) (* m.cx n.cy))
-          (+ (* m.ax n.az) (* m.bx n.bz) (* m.cx n.cz))
-          (+ (* m.ay n.ax) (* m.by n.bx) (* m.cy n.cx))
-          (+ (* m.ay n.ay) (* m.by n.by) (* m.cy n.cy))
-          (+ (* m.ay n.az) (* m.by n.bz) (* m.cy n.cz))
-          (+ (* m.az n.ax) (* m.bz n.bx) (* m.cz n.cx))
-          (+ (* m.az n.ay) (* m.bz n.by) (* m.cz n.cy))
-          (+ (* m.az n.az) (* m.bz n.bz) (* m.cz n.cz))))
+  (values (+ (* m.ux n.ux) (* m.vx n.vx) (* m.wx n.wx))
+          (+ (* m.ux n.uy) (* m.vx n.vy) (* m.wx n.wy))
+          (+ (* m.ux n.uz) (* m.vx n.vz) (* m.wx n.wz))
+          (+ (* m.uy n.ux) (* m.vy n.vx) (* m.wy n.wx))
+          (+ (* m.uy n.uy) (* m.vy n.vy) (* m.wy n.wy))
+          (+ (* m.uy n.uz) (* m.vy n.vz) (* m.wy n.wz))
+          (+ (* m.uz n.ux) (* m.vz n.vx) (* m.wz n.wx))
+          (+ (* m.uz n.uy) (* m.vz n.vy) (* m.wz n.wy))
+          (+ (* m.uz n.uz) (* m.vz n.vz) (* m.wz n.wz))))
 
 (defvfun mat4-mul ((m mat4) (n mat4)) mat4
   "Concatenate two matrices by multiplying them."
   (:scalar-args-version nil)
-  (values (+ (* m.ax n.ax) (* m.ay n.bx) (* m.az n.cx) (* m.aw n.dx))
-          (+ (* m.ax n.ay) (* m.ay n.by) (* m.az n.cy) (* m.aw n.dy))
-          (+ (* m.ax n.az) (* m.ay n.bz) (* m.az n.cz) (* m.aw n.dz))
-          (+ (* m.ax n.aw) (* m.ay n.bw) (* m.az n.cw) (* m.aw n.dw))
-          (+ (* m.bx n.ax) (* m.by n.bx) (* m.bz n.cx) (* m.bw n.dx))
-          (+ (* m.bx n.ay) (* m.by n.by) (* m.bz n.cy) (* m.bw n.dy))
-          (+ (* m.bx n.az) (* m.by n.bz) (* m.bz n.cz) (* m.bw n.dz))
-          (+ (* m.bx n.aw) (* m.by n.bw) (* m.bz n.cw) (* m.bw n.dw))
-          (+ (* m.cx n.ax) (* m.cy n.bx) (* m.cz n.cx) (* m.cw n.dx))
-          (+ (* m.cx n.ay) (* m.cy n.by) (* m.cz n.cy) (* m.cw n.dy))
-          (+ (* m.cx n.az) (* m.cy n.bz) (* m.cz n.cz) (* m.cw n.dz))
-          (+ (* m.cx n.aw) (* m.cy n.bw) (* m.cz n.cw) (* m.cw n.dw))
-          (+ (* m.dx n.ax) (* m.dy n.bx) (* m.dz n.cx) (* m.dw n.dx))
-          (+ (* m.dx n.ay) (* m.dy n.by) (* m.dz n.cy) (* m.dw n.dy))
-          (+ (* m.dx n.az) (* m.dy n.bz) (* m.dz n.cz) (* m.dw n.dz))
-          (+ (* m.dx n.aw) (* m.dy n.bw) (* m.dz n.cw) (* m.dw n.dw))))
+  (values (+ (* m.ux n.ux) (* m.uy n.vx) (* m.uz n.wx) (* m.uw n.tx))
+          (+ (* m.ux n.uy) (* m.uy n.vy) (* m.uz n.wy) (* m.uw n.ty))
+          (+ (* m.ux n.uz) (* m.uy n.vz) (* m.uz n.wz) (* m.uw n.tz))
+          (+ (* m.ux n.uw) (* m.uy n.vw) (* m.uz n.ww) (* m.uw n.tw))
+          (+ (* m.vx n.ux) (* m.vy n.vx) (* m.vz n.wx) (* m.vw n.tx))
+          (+ (* m.vx n.uy) (* m.vy n.vy) (* m.vz n.wy) (* m.vw n.ty))
+          (+ (* m.vx n.uz) (* m.vy n.vz) (* m.vz n.wz) (* m.vw n.tz))
+          (+ (* m.vx n.uw) (* m.vy n.vw) (* m.vz n.ww) (* m.vw n.tw))
+          (+ (* m.wx n.ux) (* m.wy n.vx) (* m.wz n.wx) (* m.ww n.tx))
+          (+ (* m.wx n.uy) (* m.wy n.vy) (* m.wz n.wy) (* m.ww n.ty))
+          (+ (* m.wx n.uz) (* m.wy n.vz) (* m.wz n.wz) (* m.ww n.tz))
+          (+ (* m.wx n.uw) (* m.wy n.vw) (* m.wz n.ww) (* m.ww n.tw))
+          (+ (* m.tx n.ux) (* m.ty n.vx) (* m.tz n.wx) (* m.tw n.tx))
+          (+ (* m.tx n.uy) (* m.ty n.vy) (* m.tz n.wy) (* m.tw n.ty))
+          (+ (* m.tx n.uz) (* m.ty n.vz) (* m.tz n.wz) (* m.tw n.tz))
+          (+ (* m.tx n.uw) (* m.ty n.vw) (* m.tz n.ww) (* m.tw n.tw))))
 
  ;;;;; * Matrix Transpose
 
@@ -148,67 +148,67 @@
            (let ((tmp (row-major-aref matrix i)))
              (setf (row-major-aref matrix i) (row-major-aref matrix j)
                    (row-major-aref matrix j) tmp))))
-    (let ((rows (isqrt (length m)))
+    (let ((dim (isqrt (array-dimension m 0)))
           (result (mat-ensure-copy m store)))
-      (loop for i from 0 below rows do
-           (loop for j from (1+ i) below rows do
-                (swap result (+ j (* i rows)) (+ i (* j rows))))
+      (loop for i from 0 below dim do
+           (loop for j from (1+ i) below dim do
+                (swap result (+ j (* i dim)) (+ i (* j dim))))
            finally (return result)))))
 
 (defvfun mat2-transpose ((m mat2)) mat2
   "Transpose the matrix."
-  (values m.ax m.bx m.ay m.by))
+  (values m.ux m.vx m.uy m.vy))
 
 (defvfun mat3-transpose ((m mat3)) mat3
   "Transpose the matrix."
-  (values m.ax m.bx m.cx m.ay m.by m.cy m.az m.bz m.cz))
+  (values m.ux m.vx m.wx m.uy m.vy m.wy m.uz m.vz m.wz))
 
 (defvfun mat4-transpose ((m mat4)) mat4
   "Transpose the matrix."
-  (values m.ax m.bx m.cx m.dx m.ay m.by m.cy m.dy m.az m.bz m.cz m.dz m.aw m.bw m.cw m.dw))
+  (values m.ux m.vx m.wx m.tx m.uy m.vy m.wy m.ty m.uz m.vz m.wz m.tz m.uw m.vw m.ww m.tw))
 
 ;;;; * Calculate Matrix Determinant
 
 (defvfun mat2-determinant ((m mat2)) scalar
   "Calculate the determinant of the matrix."
-  (- (* m.ax m.by) (* m.bx m.ay)))
+  (- (* m.ux m.vy) (* m.vx m.uy)))
 
 (defvfun mat3-determinant ((m mat3)) scalar
   "Calculate the determinant of the matrix."
   ;; Calculate the determinant by multiplying the elements of the
   ;; first row with the sub-determinants of the elements not on the
   ;; same row or column.
-  (+ (- (* m.ax (mat2-determinant* m.by m.bz m.cy m.cz))
-        (* m.ay (mat2-determinant* m.bx m.bz m.cx m.cz)))
-     (* m.az (mat2-determinant* m.bx m.by m.cx m.cy))))
+  (+ (- (* m.ux (mat2-determinant* m.vy m.vz m.wy m.wz))
+        (* m.uy (mat2-determinant* m.vx m.vz m.wx m.wz)))
+     (* m.uz (mat2-determinant* m.vx m.vy m.wx m.wy))))
 
 (defvfun mat4-determinant ((m mat4)) scalar
   "Calculate the determinant of the matrix."
   ;; Calculate the determinant by multiplying the elements of the
   ;; first row with the sub-determinants of the elements not on the
   ;; same row or column.
-  (+ (- (* m.ax (mat3-determinant* m.by m.bz m.bw m.cy m.cz m.cw m.dy m.dz m.dw))
-        (* m.ay (mat3-determinant* m.bx m.bz m.bw m.cx m.cz m.cw m.dx m.dz m.dw)))
-     (- (* m.az (mat3-determinant* m.bx m.by m.bw m.cx m.cy m.cw m.dx m.dy m.dw))
-        (* m.aw (mat3-determinant* m.bx m.by m.bz m.cx m.cy m.cz m.dx m.dy m.dz)))))
+  (+ (- (* m.ux (mat3-determinant* m.vy m.vz m.vw m.wy m.wz m.ww m.ty m.tz m.tw))
+        (* m.uy (mat3-determinant* m.vx m.vz m.vw m.wx m.wz m.ww m.tx m.tz m.tw)))
+     (- (* m.uz (mat3-determinant* m.vx m.vy m.vw m.wx m.wy m.ww m.tx m.ty m.tw))
+        (* m.uw (mat3-determinant* m.vx m.vy m.vz m.wx m.wy m.wz m.tx m.ty m.tz)))))
 
 
 ;;;; * Matrix Inversion
 
 (defvfun mat3-invert ((m mat3)) mat3
   "Invert the matrix"
-  (let ((det (mat3-determinant* m.ax m.ay m.az m.bx m.by m.bz m.cx m.cy m.cz)))
+  (let ((det (mat3-determinant* m.ux m.uy m.uz m.vx m.vy m.vz m.wx m.wy m.wz)))
     (if (= +scalar-zero+ det)
-        (values m.ax m.ay m.az m.bx m.by m.bz m.cx m.cy m.cz)
-        (mat3-scale* (- (* m.by m.cz) (* m.bz m.cy))
-                     (- (* m.az m.cy) (* m.ay m.cz))
-                     (- (* m.ay m.bz) (* m.az m.by))
-                     (- (* m.bz m.cx) (* m.bx m.cz))
-                     (- (* m.ax m.cz) (* m.az m.cx))
-                     (- (* m.az m.bx) (* m.ax m.bz))
-                     (- (* m.bx m.cy) (* m.by m.cx))
-                     (- (* m.ay m.cx) (* m.ax m.cy))
-                     (- (* m.ax m.by) (* m.ay m.bx))
+        (values m.ux m.uy m.uz m.vx m.vy m.vz m.wx m.wy m.wz)
+        (mat3-scale* (- (* m.vy m.wz) (* m.vz m.wy))
+                     (- (* m.uz m.wy) (* m.uy m.wz))
+                     (- (* m.uy m.vz) (* m.uz m.vy))
+                     (- (* m.vz m.wx) (* m.vx m.wz))
+                     (- (* m.ux m.wz) (* m.uz m.wx))
+                     (- (* m.uz m.vx) (* m.ux m.vz))
+                     (- (* m.vx m.wy) (* m.vy m.wx))
+                     (- (* m.uy m.wx) (* m.ux m.wy))
+                     (- (* m.ux m.vy) (* m.uy m.vx))
                      (invert det)))))
 
 
@@ -217,54 +217,54 @@
 
 (defvfun mat2-negate ((m mat2)) mat2
   "Negate the matrix."
-  (values (- m.ax) (- m.ay)
-          (- m.bx) (- m.by)))
+  (values (- m.ux) (- m.uy)
+          (- m.vx) (- m.vy)))
 
 (defvfun mat3-negate ((m mat3)) mat3
   "Negate the matrix."
-  (values (- m.ax) (- m.ay) (- m.az)
-          (- m.bx) (- m.by) (- m.bz)
-          (- m.cx) (- m.cy) (- m.cz)))
+  (values (- m.ux) (- m.uy) (- m.uz)
+          (- m.vx) (- m.vy) (- m.vz)
+          (- m.wx) (- m.wy) (- m.wz)))
 
 (defvfun mat4-negate ((m mat4)) mat4
   "Negate the matrix."
-  (values (- m.ax) (- m.ay) (- m.az) (- m.aw)
-          (- m.bx) (- m.by) (- m.bz) (- m.bw)
-          (- m.cx) (- m.cy) (- m.cz) (- m.cw)
-          (- m.dx) (- m.dy) (- m.dz) (- m.dw)))
+  (values (- m.ux) (- m.uy) (- m.uz) (- m.uw)
+          (- m.vx) (- m.vy) (- m.vz) (- m.vw)
+          (- m.wx) (- m.wy) (- m.wz) (- m.ww)
+          (- m.tx) (- m.ty) (- m.tz) (- m.tw)))
 
 ;;;; * Transform Vectors
 ;;;
 
 (defvfun vec-transform ((v vec) (m mat) &optional (store vec)) vec
   "Transform a vector using a matrix."
-  (let ((rows (length v))
+  (let ((dim (length v))
         (v (if (eq v store) (vec-copy v) v))
         (dst (vec-ensure-store v store)))
-    (loop for i from 0 below rows do
+    (loop for i from 0 below dim do
           (setf (row-major-aref dst i)
-                (loop for j from 0 below rows
-                      sum (* (row-major-aref m (+ (* i rows) j))
+                (loop for j from 0 below dim
+                      sum (* (row-major-aref m (+ (* j dim) i))
                              (row-major-aref v j))))
           finally (return dst))))
 
 (defvfun vec2-transform ((v vec2) (m mat2)) vec2
   "Transform a vector using a matrix."
-  (values (+ (* m.ax v.x) (* m.ay v.y))
-          (+ (* m.bx v.x) (* m.by v.y))))
+  (values (+ (* m.ux v.x) (* m.vx v.y))
+          (+ (* m.uy v.x) (* m.vy v.y))))
 
 (defvfun vec3-transform ((v vec3) (m mat3)) vec3
   "Transform a vector using a matrix."
-  (values (+ (* m.ax v.x) (* m.ay v.y) (* m.az v.z))
-          (+ (* m.bx v.x) (* m.by v.y) (* m.bz v.z))
-          (+ (* m.cx v.x) (* m.cy v.y) (* m.cz v.z))))
+  (values (+ (* m.ux v.x) (* m.vx v.y) (* m.wx v.z))
+          (+ (* m.uy v.x) (* m.vy v.y) (* m.wy v.z))
+          (+ (* m.uz v.x) (* m.vz v.y) (* m.wz v.z))))
 
 (defvfun vec4-transform ((v vec4) (m mat4)) vec4
   "Transform a vector using a matrix."
-  (values (+ (* m.ax v.x) (* m.ay v.y) (* m.az v.z) (* m.aw v.w))
-          (+ (* m.bx v.x) (* m.by v.y) (* m.bz v.z) (* m.bw v.w))
-          (+ (* m.cx v.x) (* m.cy v.y) (* m.cz v.z) (* m.cw v.w))
-          (+ (* m.dx v.x) (* m.dy v.y) (* m.dz v.z) (* m.dw v.w))))
+  (values (+ (* m.ux v.x) (* m.vx v.y) (* m.wx v.z) (* m.tx v.w))
+          (+ (* m.uy v.x) (* m.vy v.y) (* m.wy v.z) (* m.ty v.w))
+          (+ (* m.uz v.x) (* m.vz v.y) (* m.wz v.z) (* m.tz v.w))
+          (+ (* m.uw v.x) (* m.vw v.y) (* m.ww v.z) (* m.tw v.w))))
 
 
 ;;; matrix.lisp ends here
