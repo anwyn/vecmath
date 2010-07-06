@@ -13,7 +13,8 @@
 (in-package :vecmath)
 
 (defpackage :vecmath-test
-    (:use :vecmath :common-lisp :stefil))
+    (:nicknames :vm-test)
+  (:use :vecmath :common-lisp :stefil))
 
 (in-package :vecmath-test)
 

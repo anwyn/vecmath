@@ -21,6 +21,8 @@
   (:import-from :alexandria
                 #:symbolicate)
   (:export #:scalar
+           #:deg2rad
+           #:rad2deg
 
            #:vec
            #:vec-equal
@@ -106,6 +108,7 @@
            #:vec4-transform       #:vec4-transform%       #:vec4-transform*
 
            #:mat
+           #:mat-scale
            #:mat-mul
            #:mat-transpose
            #:mat-transform
@@ -114,6 +117,7 @@
            #:make-mat2
            #:mat2-clone
            #:mat2-copy
+           #:mat2-scale           #:mat2-scale*           #:mat2-scale%
            #:mat2-mul             #:mat2-mul*             #:mat2-mul%
            #:mat2-transpose       #:mat2-transpose*       #:mat2-transpose%
            #:mat2-determinant     #:mat2-determinant*     #:mat2-determinant%
@@ -123,19 +127,19 @@
            #:make-mat3
            #:mat3-clone
            #:mat3-copy
+           #:mat3-scale           #:mat3-scale*           #:mat3-scale%
            #:mat3-mul             #:mat3-mul*
            #:mat3-tmul            #:mat3-tmul*            #:mat3-tmul%
            #:mat3-transpose       #:mat3-transpose*       #:mat3-transpose%
            #:mat3-determinant     #:mat3-determinant*     #:mat3-determinant%
            #:mat3-invert          #:mat3-invert*          #:mat3-invert%
            #:mat3-negate          #:mat3-negate*          #:mat3-negate%
-           #:mat3<-normaxis/angle #:mat3<-normaxis/angle* #:mat3<-normaxis/angle%
-           #:mat3<-axis/angle     #:mat3<-axis/angle*     #:mat3<-axis/angle%
 
            #:mat4
            #:make-mat4
            #:mat4-clone
            #:mat4-copy
+           #:mat4-scale           #:mat4-scale*           #:mat4-scale%
            #:mat4-mul             #:mat4-mul*             #:mat4-mul%
            #:mat4-transpose       #:mat4-transpose*       #:mat4-transpose%
            #:mat4-determinant     #:mat4-determinant*     #:mat4-determinant%
@@ -145,7 +149,6 @@
            #:make-quat
            #:quat-clone
            #:quat-copy
-           #:quat<-axis/angle
            #:quat-identity!
            #:quat-invert          #:quat-invert*          #:quat-invert%
            #:quat-scale           #:quat-scale*           #:quat-scale%
@@ -157,6 +160,18 @@
            #:quat-axis            #:quat-axis*            #:quat-axis%
 
            #:axis/angle
+           #:make-axis/angle
+           #:axis/angle-clone
+           #:axis/angle-copy
+           #:axis/angle<-mat3     #:axis/angle<-mat3*
+           #:axis/angle<-mat4     #:axis/angle<-mat4*
+           #:mat3<-axis/angle     #:mat3<-axis/angle*
+           #:mat3<-axis-angle     #:mat3<-axis-angle*
+           #:mat4<-axis/angle     #:mat4<-axis/angle*
+           #:mat4<-axis-angle     #:mat4<-axis-angle*
+           #:axis/angle<-quat     #:axis/angle<-quat*
+           #:quat<-axis/angle     #:quat<-axis/angle*
+           #:quat<-axis-angle     #:quat<-axis-angle*
            ))
 
 
