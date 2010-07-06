@@ -22,22 +22,13 @@
           q.z +scalar-zero+
           q.w +scalar-one+)))
 
-(defvfun quat<-axis/angle ((v vec3) phi) quat
-  "Get a quaternation from an axis/angle."
-  (let ((half-phi (/ 2 phi)))
-    (multiple-value-bind (x y z)
-        (vec3-normalize* v.x v.y v.z)
-      (multiple-value-call #'values
-        (vec3-scale* x y z (sin half-phi))
-        (cos half-phi)))))
-
 (defvfun quat-invert ((q quat)) quat
   "Invert the quaternion."
   (values (- q.x) (- q.y) (- q.z) q.w))
 
 (defvfun quat-scale ((q quat) s) quat
   "Scale the quaternion."
-  (vec4-scale* q.x q.y q.z q.w s))
+  (values (* q.x s) (* q.y s) (* q.z s) (* q.w s)))
 
 (defvfun quat-mul ((a quat) (b quat)) quat
   "Multiplicate two quaternions."
@@ -64,17 +55,22 @@
 
 (defvfun quat-normalize ((q quat)) quat
   "Normalize quaternion."
-  (vec4-scale* q.x q.y q.z q.w
+  (quat-scale* q.x q.y q.z q.w
                (inverse-sqrt (quat-magnitude^2* q.x q.y q.z q.w))))
 
 (defvfun quat-axis ((q quat)) vec3
   "Returns the axis of the rotation this quaternion represents."
-  (vec3-scale* q.x q.y q.z
-               (inverse-sqrt (quat-magnitude^2* q.x q.y q.z q.w))))
+  (multiple-value-bind (x y z w)
+      (if (> q.x +scalar-one+)
+          (quat-normalize* q.x q.y q.z q.w)
+          (values q.x q.y q.z q.w))
+    (vec3-scale* x y z (inverse-sqrt (- +scalar-one+ (square w))))))
 
 (defvfun quat-angle ((q quat)) scalar
   "Returns the angle of the rotation this quaternion represents."
-  (atan (vec3-magnitude* q.x q.y q.z) q.w))
+  (* 2 (if (> q.x +scalar-one+)
+           (atan (vec3-magnitude* q.x q.y q.z) q.w)
+           (acos q.w))))
 
 
 ;;; quat.lisp ends here

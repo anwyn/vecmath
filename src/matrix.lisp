@@ -288,27 +288,5 @@
           (+ (* m.cx v.x) (* m.cy v.y) (* m.cz v.z) (* m.cw v.w))
           (+ (* m.dx v.x) (* m.dy v.y) (* m.dz v.z) (* m.dw v.w))))
 
-(defvfun mat3<-normalized-axis/angle ((axis vec3) angle) mat3
-  "Construct a rotation matrix from an axis and an angle.
-Assume the axis port is already normalized."
-  (let* ((cos (cos angle))
-         (sin (sin angle))
-         (omc (invert cos))
-         (xy (* axis.x axis.y omc))
-         (xz (* axis.x axis.z omc))
-         (yz (* axis.y axis.z omc))
-         (xsin (* axis.x sin))
-         (ysin (* axis.y sin))
-         (zsin (* axis.z sin)))
-    (values (+ cos (* axis.x axis.x omc)) (- xy zsin) (+ xz ysin)
-            (+ xy zsin) (+ cos (* axis.y axis.y omc)) (- yz xsin)
-            (- xz ysin) (+ yz xsin) (+ cos (* axis.z axis.z omc)))))
-
-(defvfun mat3<-axis/angle ((axis vec3) angle) mat3
-  "Construct a rotation matrix from an axis and an angle"
-  (multiple-value-bind (a b c)
-      (vec3-normalize* axis.x axis.y axis.z)
-    (mat3<-normalized-axis/angle* a b c angle)))
-
 
 ;;; matrix.lisp ends here

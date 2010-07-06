@@ -16,21 +16,9 @@
   (defparameter *optimization*
     '(optimize (speed 3) (space 2) (debug 0) (safety 0))))
 
-(deftype scalar () 'single-float)
-(defconstant +most-positive-scalar+ most-positive-single-float)
-(defconstant +scalar-epsilon+ single-float-epsilon)
-(defconstant +scalar-zero+ 0.0)
-(defconstant +scalar-one+ 1.0)
-(defconstant +scalar-half+ 0.5)
-(defconstant +scalar-minus-one+ -1.0)
-
-(defconstant +infinity+ +most-positive-scalar+)
-(defconstant +delta+ (the scalar (sqrt +scalar-epsilon+)))
-
-;;;; Simple Functions On Scalars
-;;;
-
 (eval-when (:compile-toplevel :load-toplevel :execute)
+  (deftype scalar () 'single-float)
+
   (declaim (ftype (function (number) scalar) scalar))
   (declaim (inline scalar scalarp ensure-saclar))
 
@@ -52,8 +40,39 @@
           ((numberp s) (scalar s))
           (t form))))
 
-(declaim (ftype (function (scalar) scalar) invert half inverse-sqrt square))
-(declaim (inline invert half inverse-sqrt lerp square))
+(defconstant +most-positive-scalar+ most-positive-single-float)
+(defconstant +scalar-epsilon+ single-float-epsilon)
+
+(defconstant +scalar-zero+ (ensure-scalar 0.0))
+(defconstant +scalar-one+ (ensure-scalar 1.0))
+(defconstant +scalar-half+ (ensure-scalar 0.5))
+(defconstant +scalar-pi+ (ensure-scalar pi))
+(defconstant +scalar-deg2rad+ (ensure-scalar (/ +scalar-pi+ 180.0)))
+(defconstant +scalar-rad2deg+ (ensure-scalar (/ 180.0 +scalar-pi+)))
+(defconstant +scalar-minus-one+ (ensure-scalar -1.0))
+
+(defconstant +infinity+ +most-positive-scalar+)
+(defconstant +delta+ (the scalar (sqrt +scalar-epsilon+)))
+
+;;;; Simple Functions On Scalars
+;;;
+
+(declaim (ftype (function (scalar) scalar)
+                invert half inverse-sqrt square))
+(declaim (ftype (function (number) scalar)
+                deg2rad rad2deg))
+
+
+(declaim (inline invert half inverse-sqrt lerp square deg2rad rad2deg))
+
+(defun deg2rad (angle)
+  "Convert ANGLE from degrees to radians"
+  (* (ensure-scalar angle) +scalar-deg2rad+))
+
+(defun rad2deg (angle)
+  "Convert ANGLE from radians to degrees"
+  (* (ensure-scalar angle) +scalar-rad2deg+))
+
 
 (defun invert (s)
   "Return one over scalar."

@@ -14,6 +14,11 @@
 
 (defsuite* vector-tests)
 
+(deftest vector-equal-test ()
+  (is (vec-equal (vec3) (vec3 0.0 0.0 0.0)))
+  (is (vec-equal (vec3) (make-vec3 :x 0.0 :y 0.0 :z 0.0)))
+  (is (vec-equal (vec3) (vec3 0.1) :epsilon 0.1)))
+
 (deftest vector-copy-test ()
   (is (vec-equal (vec3) (make-vec3))))
 
@@ -65,6 +70,6 @@
   (is (= 9
          (vec-dot (vec3 1.0 1.0 1.0) (vec3 3.0 3.0 3.0))
          (vec3-dot (vec3 1.0 1.0 1.0) (vec3 3.0 3.0 3.0))
-         (vec3-dot*  1.0 1.0 1.0  3.0 3.0 3.0))))
+         (vec3-dot*  1.0 1.0 1.0 3.0 3.0 3.0))))
 
 ;;; vector-tests.lisp ends here
