@@ -28,13 +28,48 @@
 
 (declaim (inline vec))
 (defun vec (&rest args)
-  (make-array (length args) :element-type 'scalar
-              :initial-contents (mapcar #'ensure-scalar args)))
+  "Make a vector from all arguments. Any arguments that are a sequence
+will be flattened into the resulting vector."
+  (if (every #'scalarp args)
+      (coerce args 'vec)
+      (coerce (mapcan (lambda (a)
+                        (etypecase a
+                          (number (list (ensure-scalar a)))
+                          (sequence (map 'list #'ensure-scalar a))))
+                      args) 'vec)))a
 
 (define-compiler-macro vec (&whole form &rest args)
   (cond ((every #'numberp args)
-         (apply #'vec args))
+         (coerce (mapcar #'ensure-scalar args) 'vec))
         (t form)))
+
+(defun make-vec (&key size (initial-element +scalar-zero+))
+  (make-array size :element-type 'scalar :initial-element initial-element))
+
+(defmacro vec<-values (form)
+  "Make a vec from multiple values."
+  `(coerce (multiple-value-list ,form) 'vec))
+
+(defun add-offset (offset slots)
+  (cons (list (first slots) offset) (rest slots)))
+
+(defmacro vec->values (v &key (offset 0) (size 1))
+  "Convert the SIZE elements starting at index OFFSET of the vector VEC
+to multiple values."
+  (let ((unique-slots (loop for i below size collect (gensym))))
+    `(with-elements ,(add-offset offset unique-slots) ,v
+       (values ,@unique-slots))))
+
+(defmacro vec<-values! (v form &key (offset 0) (size 1))
+  "Set the SIZE elements starting at index OFFSET of the vector VEC
+to the multiple values returned by the FORM."
+  (let ((unique-slots (loop for i below size collect (gensym "S")))
+        (vec (gensym "V")))
+    `(let ((,vec ,v))
+       (with-elements ,(add-offset offset unique-slots) ,vec
+         (setf (values ,@unique-slots) ,form))
+       ,vec)))
+
 
 ;;;; ---------------------------------------------------------------------------
 ;;;; ** A square matrix type
@@ -54,11 +89,7 @@
 
 (declaim (inline mat))
 (defun mat (&rest args)
-  (if (square-matrix-p args)
-      (apply #'vec args)
-      (error 'simple-error
-             :format-control "arglist must fit a square matrix
-and be of length (* dimension dimension)")))
+  (apply #'vec args))
 
 ;;;; ---------------------------------------------------------------------------
 ;;;; * Macro definitions
@@ -110,32 +141,34 @@ and be of length (* dimension dimension)")))
 
 (defun emit-type-declaration (type element-type slots)
   "Emit the vector type declaration."
-  (let ((len (length slots))
-        (args (mapcar #'ensure-car slots)))
-    `((deftype ,type (&optional (element-type 'scalar))
-        ,(list 'list ''vec len 'element-type))
+  (let ((default-args (mapcar (lambda (s)
+                                (list (ensure-car s)
+                                      (coerce (ensure-cadr s 0) element-type)))
+                              slots))
+        (simple-args (mapcar #'ensure-car slots)))
+    `((deftype ,type (&optional (element-type ',element-type))
+        ,(list 'list ''vec (length slots) 'element-type))
 
-      (declaim (inline ,type))
+      (declaim (inline ,type)
+               (ftype (function ,(cons '&optional
+                                       (mapcar (constantly element-type)
+                                               slots))
+                                ,type)))
 
-      (defstruct (,type
-                   (:type (vector ,element-type))
-                   (:copier nil)
-                   (:constructor)
-                   (:constructor ,type ,(cons '&optional args)))
-        ,@(mapcar (lambda (s)
-                    (list (ensure-car s)
-                          (coerce (ensure-cadr s 0) element-type)
-                          ':type element-type))
-           slots)))))
+      (defun ,type (&optional ,@default-args)
+        (vec ,@simple-args))
+
+      (define-compiler-macro ,type (&whole form &optional ,@default-args)
+        (let ((args (list ,@simple-args)))
+          (cond ((every #'numberp args)
+                 (coerce (mapcar #'ensure-scalar args) ',type))
+                (t form)))))))
 
 
 (defun emit-meta-data (type element-type slots)
   `((eval-when (:compile-toplevel :load-toplevel :execute)
       (setf (get ',type 'slot-list) ',(mapcar #'ensure-car slots))
       (setf (get ',type 'element-type) ',element-type))))
-
-(defun add-offset (offset slots)
-  (cons (list (first slots) offset) (rest slots)))
 
 (defun emit-converters (type slots)
   "Emit converting functions."

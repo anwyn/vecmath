@@ -24,8 +24,11 @@
            #:deg2rad
            #:rad2deg
 
+           #:equal?
            #:vec
-           #:vec-equal
+           #:vec<-values
+           #:vec<-values!
+           #:vec->values
            #:vec-copy
            #:vec-mul
            #:vec-div
