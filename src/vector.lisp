@@ -22,7 +22,7 @@
     (x y z))
 
 (defvector vec4
-    (x y z (w 1.0)))
+    (x y z w))
 
 (defvector euler-angles
     (yaw pitch roll))
@@ -40,24 +40,26 @@
 ;;;; * Functions for vectors of arbitrary length.
 ;;;
 
-(declaim (inline vec-equal))
-(defun vec-equal (x y &key epsilon)
-  (declare (type vec x y)
-           (type (or null scalar) epsilon))
-  (let ((length (array-dimension x 0)))
-    (and (= length (array-dimension y 0))
-         (if (null epsilon)
-             (dotimes (i length t)
-               (declare (type fixnum i))
-               (unless (= (row-major-aref x i)
-                          (row-major-aref y i))
-                 (return nil)))
-             (dotimes (i length t)
-               (declare (type fixnum i))
-               (unless (<= (abs (- (row-major-aref x i)
-                                   (row-major-aref y i)))
-                           epsilon)
-                 (return nil)))))))
+(defun equal? (x y &key (epsilon +scalar-epsilon+))
+  (declare (type (or null scalar) epsilon))
+  (let ((test (if (null epsilon)
+                  (lambda (a b)
+                    (declare (type scalar a b))
+                    (= a b))
+                  (lambda (a b)
+                    (declare (type scalar a b))
+                    (<= (abs (- a b)) epsilon)))))
+    (typecase x
+      (scalar (funcall test x y))
+      (vec (let ((length (array-dimension x 0)))
+             (and (= length (array-dimension y 0))
+                  (dotimes (i length t)
+                    (declare (type fixnum i))
+                    (unless (funcall test
+                                     (row-major-aref x i)
+                                     (row-major-aref y i))
+                      (return nil))))))
+      (t (equalp x y)))))
 
 (declaim (inline vec-copy))
 (defun vec-copy (a &optional b)
@@ -101,7 +103,7 @@ with all elements initialized to zero."
            accessors
            (list (cons 'vec accessors)))))
 
-;;;; ---------------------------------------------------------------------------
+;;;; ----------------------------------------------------------------------------
 ;;;; * Vector Multiplication
 ;;;
 
@@ -147,7 +149,7 @@ with all elements initialized to zero."
   (vec4-scale* v.x v.y v.z v.w (invert s)))
 
 
-;;;; ---------------------------------------------------------------------------
+;;;; ----------------------------------------------------------------------------
 ;;;; * Vector Negation
 ;;;
 
@@ -167,7 +169,7 @@ with all elements initialized to zero."
   "Invert the vector, multiply all elements with -1. "
   (vec4-scale* v.x v.y v.z v.w +scalar-minus-one+))
 
-;;;; ---------------------------------------------------------------------------
+;;;; ----------------------------------------------------------------------------
 ;;;; * Vector Addition and Substraction
 ;;;
 
@@ -205,7 +207,7 @@ with all elements initialized to zero."
   (values (+ a.x b.x) (+ a.y b.y) (+ a.z b.z) (+ a.w b.w)))
 
 
-;;;; ---------------------------------------------------------------------------
+;;;; ----------------------------------------------------------------------------
 ;;;; * Vector Dot Product
 ;;;
 
@@ -231,7 +233,7 @@ with all elements initialized to zero."
   (+ (* a.x b.x) (* a.y b.y) (* a.z b.z) (* a.w b.w)))
 
 
-;;;; ---------------------------------------------------------------------------
+;;;; ----------------------------------------------------------------------------
 ;;;; * Vector Cross Product
 ;;;
 
@@ -246,7 +248,7 @@ with all elements initialized to zero."
           (- (* a.z b.x) (* a.x b.z))
           (- (* a.x b.y) (* a.y b.x))))
 
-;;;; ---------------------------------------------------------------------------
+;;;; ----------------------------------------------------------------------------
 ;;;; * Vector Length
 ;;;
 

@@ -16,25 +16,25 @@
 
 (deftest matrix-identity-test ()
   (is (equalp (mat3) (mat3 1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 1.0)))
-  (is (vec-equal (mat3) (mat3 1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 1.0))))
+  (is (equal? (mat3) (mat3 1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 1.0))))
 
 (deftest matrix-multiplication-test ()
-  (is (vec-equal (mat3) (mat-mul (mat3) (mat3))))
-  (is (vec-equal (mat3) (mat3-mul (mat3) (mat3)))))
+  (is (equal? (mat3) (mat-mul (mat3) (mat3))))
+  (is (equal? (mat3) (mat3-mul (mat3) (mat3)))))
 
 (deftest matrix-transpose-test ()
-  (is (vec-equal (mat3) (mat-transpose (mat3))))
-  (is (vec-equal (mat3) (mat3-transpose (mat3))))
-  (is (vec-equal (mat3) (mat3-tmul (mat3) (mat3)))))
+  (is (equal? (mat3) (mat-transpose (mat3))))
+  (is (equal? (mat3) (mat3-transpose (mat3))))
+  (is (equal? (mat3) (mat3-tmul (mat3) (mat3)))))
 
 (deftest matrix-invert-test ()
-  (is (vec-equal (mat3) (mat3-invert (mat3)))))
+  (is (equal? (mat3) (mat3-invert (mat3)))))
 
 (deftest matrix-negate-test ()
-  (is (vec-equal (mat-scale (mat3) -1.0) (mat3-negate (mat3))))
-  (is (vec-equal (mat-scale (mat2) -1.0) (mat2-negate (mat2))))
-  (is (vec-equal (mat-scale (mat3) -1.0) (mat3-negate (mat3))))
-  (is (vec-equal (mat-scale (mat4) -1.0) (mat4-negate (mat4)))))
+  (is (equal? (mat-scale (mat3) -1.0) (mat3-negate (mat3))))
+  (is (equal? (mat-scale (mat2) -1.0) (mat2-negate (mat2))))
+  (is (equal? (mat-scale (mat3) -1.0) (mat3-negate (mat3))))
+  (is (equal? (mat-scale (mat4) -1.0) (mat4-negate (mat4)))))
 
 (deftest matrix-determinant-test ()
   (is (= 1.0 (mat2-determinant (mat2))))
