@@ -40,8 +40,25 @@
   (declare (type mat template) (type (or null mat) store))
   (the mat (or store (copy-seq template))))
 
+;;;; ----------------------------------------------------------------------------
+;;;; * Constructors and Converters
+
+(defvfun mat3<-euler ((e euler-angles)) mat3
+  "Construct a rotation matrix from three angles, describing the rotation
+about the Y, Z and X axis and applied in this order."
+  (let ((cy (cos e.yaw))
+        (sy (sin e.yaw))
+        (cp (cos e.pitch))
+        (sp (sin e.pitch))
+        (cr (cos e.roll))
+        (sr (sin e.roll)))
+    (values (* cy cp) sp (- (* sy cp))
+            (+ (* sy sr) (* (- cy) sp cr)) (* cp cr) (+ (* sy sp cr) (* cy sr))
+            (+ (* cy sp sr) (* sy cr)) (* (- cp) sr) (+ (* (- sy) sp sr) (* cy cr)))))
+
+
+;;;; ----------------------------------------------------------------------------
 ;;;; * Matrix Multiplication With a Scalar
-;;;
 
 (defvfun mat-scale ((m mat) s &optional (store mat)) mat
   "Multiplicate a matrix with a scalar."

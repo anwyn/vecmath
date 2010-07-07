@@ -24,6 +24,9 @@
 (defvector vec4
     (x y z (w 1.0)))
 
+(defvector euler-angles
+    (yaw pitch roll))
+
 ;;;; ---------------------------------------------------------------------------
 ;;;; * Vector Constants
 ;;;
@@ -123,6 +126,7 @@ with all elements initialized to zero."
   (values (* v.x s) (* v.y s) (* v.z s) (* v.w s)))
 
 
+;;;; ----------------------------------------------------------------------------
 ;;;; * Vector Division
 ;;;
 

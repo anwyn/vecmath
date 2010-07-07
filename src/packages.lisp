@@ -127,6 +127,7 @@
            #:make-mat3
            #:mat3-clone
            #:mat3-copy
+           #:mat3<-euler          #:mat3<-euler*
            #:mat3-scale           #:mat3-scale*           #:mat3-scale%
            #:mat3-mul             #:mat3-mul*
            #:mat3-tmul            #:mat3-tmul*            #:mat3-tmul%
