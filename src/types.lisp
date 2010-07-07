@@ -36,7 +36,7 @@ will be flattened into the resulting vector."
                         (etypecase a
                           (number (list (ensure-scalar a)))
                           (sequence (map 'list #'ensure-scalar a))))
-                      args) 'vec)))a
+                      args) 'vec)))
 
 (define-compiler-macro vec (&whole form &rest args)
   (cond ((every #'numberp args)
