@@ -20,8 +20,7 @@
                                      (:file "types"      :depends-on ("vecmath"))
                                      (:file "vector"     :depends-on ("types"))
                                      (:file "matrix"     :depends-on ("vector"))
-                                     (:file "quat"       :depends-on ("matrix"))
-                                     (:file "axis-angle" :depends-on ("quat"))))))
+                                     (:file "quat"       :depends-on ("matrix"))))))
 
 (defsystem :vecmath-test
   :components ((:module "test"

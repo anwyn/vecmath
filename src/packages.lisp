@@ -51,7 +51,7 @@
 
            #:vec2
            #:make-vec2
-           #:vec2-clone
+           #:vec2-map
            #:vec2-copy
            #:vec2-scale           #:vec2-scale*           #:vec2-scale%
            #:vec2-mul             #:vec2-mul*             #:vec2-mul5
@@ -71,7 +71,7 @@
 
            #:vec3
            #:make-vec3
-           #:vec3-clone
+           #:vec3-map
            #:vec3-copy
            #:vec3-mul             #:vec3-mul*             #:vec3-mul%
            #:vec3-div             #:vec3-div*             #:vec3-div%
@@ -92,7 +92,7 @@
 
            #:vec4
            #:make-vec4
-           #:vec4-clone
+           #:vec4-map
            #:vec4-copy
            #:vec4-mul             #:vec4-mul*             #:vec4-mul%
            #:vec4-div             #:vec4-div*             #:vec4-div%
@@ -118,7 +118,7 @@
 
            #:mat2
            #:make-mat2
-           #:mat2-clone
+           #:mat2-map
            #:mat2-copy
            #:mat2-scale           #:mat2-scale*           #:mat2-scale%
            #:mat2-mul             #:mat2-mul*             #:mat2-mul%
@@ -128,7 +128,7 @@
 
            #:mat3
            #:make-mat3
-           #:mat3-clone
+           #:mat3-map
            #:mat3-copy
            #:mat3<-euler          #:mat3<-euler*
            #:mat3-scale           #:mat3-scale*           #:mat3-scale%
@@ -141,7 +141,7 @@
 
            #:mat4
            #:make-mat4
-           #:mat4-clone
+           #:mat4-map
            #:mat4-copy
            #:mat4-scale           #:mat4-scale*           #:mat4-scale%
            #:mat4-mul             #:mat4-mul*             #:mat4-mul%
@@ -151,7 +151,7 @@
 
            #:quat
            #:make-quat
-           #:quat-clone
+           #:quat-map
            #:quat-copy
            #:quat-identity!
            #:quat-invert          #:quat-invert*          #:quat-invert%
@@ -165,7 +165,7 @@
 
            #:axis/angle
            #:make-axis/angle
-           #:axis/angle-clone
+           #:axis/angle-map
            #:axis/angle-copy
            #:axis/angle<-mat3     #:axis/angle<-mat3*
            #:axis/angle<-mat4     #:axis/angle<-mat4*
@@ -190,7 +190,5 @@
 ;;;;@include "matrix.lisp"
 
 ;;;;@include "quat.lisp"
-
-;;;;@include "axis-angle.lisp"
 
 ;;; packages.lisp ends here

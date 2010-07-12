@@ -13,10 +13,10 @@
 
 (in-package :vecmath)
 
-;;;; ---------------------------------------------------------------------------
+;;;; ----------------------------------------------------------------------------
 ;;;; * Type definitions
 
-;;;; ---------------------------------------------------------------------------
+;;;; ----------------------------------------------------------------------------
 ;;;; ** A vector type
 ;;;;
 ;;;; A vector of arbitrary length with element type scalar
@@ -71,7 +71,7 @@ to the multiple values returned by the FORM."
        ,vec)))
 
 
-;;;; ---------------------------------------------------------------------------
+;;;; ----------------------------------------------------------------------------
 ;;;; ** A square matrix type
 
 (defun square-matrix-p(a)
@@ -91,7 +91,7 @@ to the multiple values returned by the FORM."
 (defun mat (&rest args)
   (apply #'vec args))
 
-;;;; ---------------------------------------------------------------------------
+;;;; ----------------------------------------------------------------------------
 ;;;; * Macro definitions
 
 (defun expand-vector-arg (vec &optional slot-list)
@@ -176,11 +176,12 @@ to the multiple values returned by the FORM."
         (unique-slots (mapcar #'(lambda (slot)
                                   (symbolicate (ensure-car slot)))
                               slots))
+        (len (length slots))
         (vec->values (symbolicate type '#:->values))
         (vec<-values (symbolicate type '#:<-values))
         (vec<-values! (symbolicate type '#:<-values!))
-        (cloner (symbolicate type '#:-copy))
-        (copier (symbolicate type '#:-copy!)))
+        (copy (symbolicate type '#:-copy))
+        (map (symbolicate type '#:-map)))
     `((defmacro ,vec->values (v &key (offset 0))
         "Convert a vec to multiple values starting from an offset into the vector."
         (list 'with-elements (add-offset offset ',unique-slots) v
@@ -197,19 +198,30 @@ to the multiple values returned by the FORM."
               (list 'with-elements (add-offset offset ',unique-slots) ',vec
                     (list 'setf (cons 'values ',unique-slots) form) ',vec)))
 
-      (declaim (inline ,cloner ,copier))
+      (declaim (inline ,copy))
 
-      (defun ,cloner (v &key (offset 0))
+      (defun ,copy (v &key (offset 0))
         "Clone a vector from the source vector V with offset."
         (declare (type vec v))
         (with-elements ,(add-offset 'offset unique-slots) v
           (,type ,@unique-slots)))
 
-      (defun ,copier (source target &key (source-offset 0) (target-offset 0))
-        "Copy vector SOURCE into vector TARGET. Returns TARGET."
-        (declare (type vec source target))
-        (,vec<-values! target (,vec->values source :offset source-offset)
-                       :offset target-offset)))))
+      (defun ,map (target fn source &key (target-offset 0) (source-offset 0) length)
+        "Map vector SOURCE into vector TARGET. Returns TARGET."
+        (declare (type vec source)
+                 (type (or null vec) target))
+        (let* ((l (or length (min (length source) (length target))))
+               (tgt (or target (make-vec :size l))))
+          (loop for len = l then (- len ,len)
+                for i = (* source-offset ,len) then (+ i ,len)
+                for j = (* target-offset 3) then (+ i ,len)
+                while (>= len ,len)
+                do (with-elements ,(add-offset 'j unique-slots) tgt
+                     (setf (values ,@unique-slots)
+                           (with-elements ,(add-offset 'i unique-slots) source
+                             (funcall fn ,@unique-slots))))
+                finally (return tgt)))))))
+
 
 ;;;; -------------------------------------------------------------------------
 ;;;; * Vector type defining macro
@@ -248,7 +260,7 @@ to the multiple values returned by the FORM."
       ,doc
       ,@body)))
 
-;;;; ---------------------------------------------------------------------------
+;;;; ----------------------------------------------------------------------------
 ;;;; * Vector function defining macro
 
 (defmacro defvfun (name arglist type &body body)

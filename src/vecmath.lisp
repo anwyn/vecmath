@@ -45,14 +45,17 @@
 
 (defconstant +scalar-zero+ (ensure-scalar 0.0))
 (defconstant +scalar-one+ (ensure-scalar 1.0))
+(defconstant +scalar-two+ (ensure-scalar 2.0))
 (defconstant +scalar-half+ (ensure-scalar 0.5))
-(defconstant +scalar-pi+ (ensure-scalar pi))
-(defconstant +scalar-deg2rad+ (ensure-scalar (/ +scalar-pi+ 180.0)))
-(defconstant +scalar-rad2deg+ (ensure-scalar (/ 180.0 +scalar-pi+)))
 (defconstant +scalar-minus-one+ (ensure-scalar -1.0))
 
+(defconstant +scalar-pi+ (ensure-scalar pi))
+(defconstant +scalar-pi-half+ (ensure-scalar (/ pi 2)))
+(defconstant +scalar-deg2rad+ (ensure-scalar (/ pi 180.0)))
+(defconstant +scalar-rad2deg+ (ensure-scalar (/ 180.0 pi)))
+
 (defconstant +infinity+ +most-positive-scalar+)
-(defconstant +delta+ (the scalar (sqrt +scalar-epsilon+)))
+(defconstant +delta+ (ensure-scalar (sqrt +scalar-epsilon+)))
 
 ;;;; Simple Functions On Scalars
 ;;;
@@ -63,7 +66,7 @@
                 deg2rad rad2deg))
 
 
-(declaim (inline invert half inverse-sqrt lerp square deg2rad rad2deg))
+(declaim (inline invert half twice inverse-sqrt lerp square deg2rad rad2deg))
 
 (defun deg2rad (angle)
   "Convert ANGLE from degrees to radians"
@@ -80,6 +83,10 @@
 
 (defun half (s)
   "Return half the value."
+  (the scalar (* +scalar-half+ s)))
+
+(defun twice (s)
+  "Return twice the value."
   (the scalar (* +scalar-half+ s)))
 
 (defun inverse-sqrt (s)

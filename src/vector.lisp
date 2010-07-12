@@ -24,8 +24,22 @@
 (defvector vec4
     (x y z w))
 
+;;;; ----------------------------------------------------------------------------
+;;;; * Euler Angles type
+;;;;
+;;;; The three angles are specified in radians an are applied in the order
+;;;; they appear in the slot list.
+
 (defvector euler-angles
     (yaw pitch roll))
+
+;;;; ----------------------------------------------------------------------------
+;;;; * Axis/Angle type
+;;;;
+;;;; The axis should always be normalized, the angle is in radians.
+
+(defvector axis/angle
+    (x y z angle))
 
 ;;;; ---------------------------------------------------------------------------
 ;;;; * Vector Constants
@@ -91,17 +105,18 @@ with all elements initialized to zero."
 (defmacro swizzle* (v &rest accessors)
   `(with-elements ((x 0) y z w
                    (r 0) g b a
-                   (s 0) t p q) ,v
+                   (s 0) u p q) ,v
      (values ,@accessors)))
 
 (defmacro swizzle (v &rest accessors)
 
   `(with-elements ((x 0) y z w
                    (r 0) g b a
-                   (s 0) t p q) ,v
+                   (s 0) u p q) ,v
      ,@(if (= 1 (length accessors))
            accessors
            (list (cons 'vec accessors)))))
+
 
 ;;;; ----------------------------------------------------------------------------
 ;;;; * Vector Multiplication

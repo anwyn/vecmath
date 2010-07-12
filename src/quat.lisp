@@ -14,6 +14,9 @@
 (defvector quat
   (x y z (w 1.0)))
 
+;;;; ----------------------------------------------------------------------------
+;;;; * Constructors and Converters
+
 
 (defun quat-identity! (q)
   (with-vector (q quat)
@@ -21,6 +24,72 @@
           q.y +scalar-zero+
           q.z +scalar-zero+
           q.w +scalar-one+)))
+
+;;;; ----------------------------------------------------------------------------
+;;;; ** Convert quaternions from and to the euler-angles type.
+
+(defvfun quat<-euler-angles ((e euler-angles)) quat
+  (let* ((yaw (half e.yaw))
+         (pitch (half e.pitch))
+         (roll (half e.roll))
+         (cy (cos yaw))
+         (sy (sin yaw))
+         (cp (cos pitch))
+         (sp (sin pitch))
+         (cr (cos roll))
+         (sr (sin roll))
+         (cycp (* cy cp))
+         (sysp (* sy sp)))
+    (values (+ (* cycp sr) (* sysp cr))
+            (+ (* sy cp cr) (* cy sy sr))
+            (- (* cy sp cr) (* sy cp sr))
+            (- (* cycp cr) (* sysp sr)))))
+
+(defvfun euler-angles<-quat ((q quat)) euler-angles
+  (let* ((sx (square q.x))
+         (sy (square q.y))
+         (sz (square q.z))
+         (sw (square q.w))
+         (test (+ (* q.x q.y) (* q.z q.w)))
+         (unit (+ sx sy sz sw)))
+    (cond ((> test (* unit (- +scalar-half+ +delta+)))
+           (values (* 2 (atan q.x q.w)) +scalar-pi-half+ +scalar-zero+))
+          ((< test (* unit (- +delta+ +scalar-half+)))
+           (values (* -2 (atan q.x q.w)) (- +scalar-pi-half+) +scalar-zero+))
+          (t
+           (let ()
+             (values (atan (- (* 2 q.y q.w) (* 2 q.x q.z)) (- (+ sx sw) sy sz))
+                     (asin (/ (* 2 test) unit))
+                     (atan (- (* 2 q.x q.w) (* 2 q.y q.z)) (- (+ sy sw) sx sz))))))))
+
+;;;; ----------------------------------------------------------------------------
+;;;; ** Convert quaternions from and to the axis/angle type.
+
+(defvfun axis/angle<-quat ((q quat)) axis/angle
+  "Extract an axis and an angle from a quaternion."
+  (multiple-value-bind (x y z w)
+      (if (> q.x +scalar-one+)
+          (quat-normalize* q.x q.y q.z q.w)
+          (values q.x q.y q.z q.w))
+    (let ((s (inverse-sqrt (- +scalar-one+ (square w)))))
+      (values (* x s) (* y s) (* z s) (* 2 (acos w))))))
+
+(defvfun quat<-axis/angle ((axis axis/angle)) quat
+  "Get a quaternation from an axis/angle."
+  (let* ((half-phi (* axis.angle +scalar-half+))
+         (sinus (sin half-phi)))
+    (values (* axis.x sinus) (* axis.y sinus) (* axis.z sinus) (cos half-phi))))
+
+(defvfun quat<-axis-angle ((v vec3) phi) quat
+  "Get a quaternation from an axis and an angle."
+  (multiple-value-bind (x y z)
+      (vec3-normalize* v.x v.y v.z)
+    (quat<-axis/angle* x y z phi)))
+
+
+;;;; ----------------------------------------------------------------------------
+;;;; * Quaternion functions
+
 
 (defvfun quat-invert ((q quat)) quat
   "Invert the quaternion."
@@ -57,6 +126,9 @@
   "Normalize quaternion."
   (quat-scale* q.x q.y q.z q.w
                (inverse-sqrt (quat-magnitude^2* q.x q.y q.z q.w))))
+
+;;;; ----------------------------------------------------------------------------
+;;;; * Extractors
 
 (defvfun quat-axis ((q quat)) vec3
   "Returns the axis of the rotation this quaternion represents."

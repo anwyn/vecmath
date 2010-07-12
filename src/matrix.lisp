@@ -29,7 +29,6 @@
      wx wy (wz 1.0) ww
      tx ty tz (tw 1.0)))
 
-
 (declaim (inline mat-ensure-store))
 (defun mat-ensure-store (template &optional store)
   (declare (type mat template) (type (or null mat) store))
@@ -43,7 +42,61 @@
 ;;;; ----------------------------------------------------------------------------
 ;;;; * Constructors and Converters
 
-(defvfun mat3<-euler ((e euler-angles)) mat3
+(defvfun mat2<-columns ((u vec2) (v vec2)) mat2
+  "Construct a 2x2 matrix from two column vectors."
+  (values u.x u.y
+          v.x v.y))
+
+(defvfun mat2<-rows ((a vec2) (b vec2)) mat2
+  "Construct a 2x2 matrix from two column vectors."
+  (values a.x b.x
+          a.y b.y))
+
+(defvfun mat3<-columns ((u vec3) (v vec3) (w vec3)) mat3
+  "Construct a 3x3 matrix from three column vectors."
+  (values u.x u.y u.z
+          v.x v.y v.z
+          w.x w.y w.z))
+
+(defvfun mat3<-rows ((a vec3) (b vec3) (c vec3)) mat3
+  "Construct a 3x3 matrix from three column vectors."
+  (values a.x b.x c.x
+          a.y b.y c.y
+          a.z b.z c.z))
+
+(defvfun mat4<-columns ((u vec4) (v vec4) (w vec4) (trans vec4)) mat4
+  "Construct a 4x4 matrix from four column vectors."
+  (values u.x u.y u.z u.w
+          v.x v.y v.z v.w
+          w.x w.y w.z w.w
+          trans.x trans.y trans.z trans.w))
+
+(defvfun mat4<-rows ((a vec4) (b vec4) (c vec4) (d vec4)) mat4
+  "Construct a 4x4 matrix from four column vectors."
+  (values a.x b.x c.x d.x
+          a.y b.y c.y d.y
+          a.z b.z c.z d.z
+          a.w b.w c.w d.w))
+
+(defvfun mat4<-columns3 ((u vec3) (v vec3) (w vec3) (trans vec3)) mat4
+  "Construct a 4x4 matrix from four column vectors in three space.
+The last row will be set to #(0.0 0.0 0.0 1.0)."
+  (values u.x u.y u.z +scalar-zero+
+          v.x v.y v.z +scalar-zero+
+          w.x w.y w.z +scalar-zero+
+          trans.x trans.y trans.z +scalar-one+))
+
+(defvfun mat4<-rows3 ((a vec3) (b vec3) (c vec3) (d vec3)) mat4
+  "Construct a 4x4 matrix from four column vectors."
+  (values a.x b.x c.x d.x
+          a.y b.y c.y d.y
+          a.z b.z c.z d.z
+          +scalar-zero+ +scalar-zero+ +scalar-zero+ +scalar-one+))
+
+;;;; ----------------------------------------------------------------------------
+;;;; ** Convert matrices from and to the euler-angles type.
+
+(defvfun mat3<-euler-angles ((e euler-angles)) mat3
   "Construct a rotation matrix from three angles, describing the rotation
 about the Y, Z and X axis and applied in this order."
   (let ((cy (cos e.yaw))
@@ -56,6 +109,109 @@ about the Y, Z and X axis and applied in this order."
             (+ (* sy sr) (* (- cy) sp cr)) (* cp cr) (+ (* sy sp cr) (* cy sr))
             (+ (* cy sp sr) (* sy cr)) (* (- cp) sr) (+ (* (- sy) sp sr) (* cy cr)))))
 
+(defvfun euler-angles<-mat3 ((m mat3)) euler-angles
+  (declare (ignore m.vx m.vz))
+  (cond ((> m.uy (- +scalar-one+ +delta+))
+         (values (atan m.wx m.wz) +scalar-pi-half+ +scalar-zero+))
+        ((< m.uy (+ +scalar-minus-one+ +delta+))
+         (values (atan m.wx m.wz) (- +scalar-pi-half+) +scalar-zero+))
+        (t
+         (values (atan (- m.uz m.ux)) (atan (- m.wy) m.vy) (asin m.uy)))))
+
+(defvfun mat4<-euler-angles ((e euler-angles) (trans vec3)) mat4
+  "Construct a rotation matrix from three angles, describing the rotation
+about the Y, Z and X axis and applied in this order."
+  (let ((cy (cos e.yaw))
+        (sy (sin e.yaw))
+        (cp (cos e.pitch))
+        (sp (sin e.pitch))
+        (cr (cos e.roll))
+        (sr (sin e.roll)))
+    (values (* cy cp) sp (- (* sy cp))
+            (+ (* sy sr) (* (- cy) sp cr)) (* cp cr) (+ (* sy sp cr) (* cy sr))
+            (+ (* cy sp sr) (* sy cr)) (* (- cp) sr) (+ (* (- sy) sp sr) (* cy cr))
+            trans.x trans.y trans.z +scalar-one+)))
+
+(defvfun euler-angles<-mat4 ((m mat4)) euler-angles
+  (declare (ignore m.uw m.vx m.vz m.vw m.ww m.tx m.ty m.tz m.tw))
+  (cond ((> m.uy (- +scalar-one+ +delta+))
+         (values (atan m.wx m.wz) +scalar-pi-half+ +scalar-zero+))
+        ((< m.uy (+ +scalar-minus-one+ +delta+))
+         (values (atan m.wx m.wz) (- +scalar-pi-half+) +scalar-zero+))
+        (t
+         (values (atan (- m.uz m.ux)) (atan (- m.wy) m.vy) (asin m.uy)))))
+
+;;;; ----------------------------------------------------------------------------
+;;;; ** Convert matrices from and to the axis/angle type.
+
+(defvfun axis/angle<-mat3 ((m mat3)) axis/angle
+  "Extract an axis and an angle from a rotation matrix."
+  (:scalar-args-version nil)
+  (multiple-value-bind (x y z)
+      (vec3-normalize* (- m.wy m.vz)
+                       (- m.uz m.wx)
+                       (- m.vx m.uy))
+    (let ((cos (half (- 1.0 (+ m.ux m.vy m.wz))))
+          (sin (half (sqrt (+ (square x)
+                              (square y)
+                              (square z))))))
+      (values x y z (atan sin cos)))))
+
+(defvfun mat3<-axis/angle ((axis axis/angle)) mat3
+  "Construct a rotation matrix from an axis/angle."
+  (let* ((cos (cos axis.angle))
+         (sin (sin axis.angle))
+         (omc (- +scalar-one+ cos))
+         (xy (* axis.x axis.y omc))
+         (xz (* axis.x axis.z omc))
+         (yz (* axis.y axis.z omc))
+         (xsin (* axis.x sin))
+         (ysin (* axis.y sin))
+         (zsin (* axis.z sin)))
+    (values (+ cos (* axis.x axis.x omc)) (- xy zsin) (+ xz ysin)
+            (+ xy zsin) (+ cos (* axis.y axis.y omc)) (- yz xsin)
+            (- xz ysin) (+ yz xsin) (+ cos (* axis.z axis.z omc)))))
+
+(defvfun mat3<-axis-angle ((axis vec3) angle) mat3
+  "Construct a rotation matrix from an axis and an angle"
+  (multiple-value-bind (a b c)
+      (vec3-normalize* axis.x axis.y axis.z)
+    (mat3<-axis/angle* a b c angle)))
+
+(defvfun axis/angle<-mat4 ((m mat4)) axis/angle
+  "Extract an axis and an angle from a rotation matrix."
+  (:scalar-args-version nil)
+  (multiple-value-bind (x y z)
+      (vec3-normalize* (- m.wy m.vz)
+                       (- m.uz m.wx)
+                       (- m.vx m.uy))
+    (let ((cos (half (- 1.0 (+ m.ux m.vy m.wz))))
+          (sin (half (sqrt (+ (square x)
+                              (square y)
+                              (square z))))))
+      (values x y z (atan sin cos)))))
+
+(defvfun mat4<-axis/angle ((axis axis/angle)) mat4
+  "Construct a rotation matrix from an axis/angle."
+  (let* ((cos (cos axis.angle))
+         (sin (sin axis.angle))
+         (omc (- +scalar-one+ cos))
+         (xy (* axis.x axis.y omc))
+         (xz (* axis.x axis.z omc))
+         (yz (* axis.y axis.z omc))
+         (xsin (* axis.x sin))
+         (ysin (* axis.y sin))
+         (zsin (* axis.z sin)))
+    (values (+ cos (* axis.x axis.x omc)) (- xy zsin) (+ xz ysin) +scalar-zero+
+            (+ xy zsin) (+ cos (* axis.y axis.y omc)) (- yz xsin) +scalar-zero+
+            (- xz ysin) (+ yz xsin) (+ cos (* axis.z axis.z omc)) +scalar-zero+
+            +scalar-zero+ +scalar-zero+ +scalar-zero+ +scalar-one+)))
+
+(defvfun mat4<-axis-angle ((axis vec3) angle) mat4
+  "Construct a rotation matrix from an axis and an angle"
+  (multiple-value-bind (a b c)
+      (vec3-normalize* axis.x axis.y axis.z)
+    (mat4<-axis/angle* a b c angle)))
 
 ;;;; ----------------------------------------------------------------------------
 ;;;; * Matrix Multiplication With a Scalar
@@ -86,6 +242,7 @@ about the Y, Z and X axis and applied in this order."
           (* m.tx s) (* m.ty s) (* m.tz s) (* m.tw s)))
 
 
+;;;; ----------------------------------------------------------------------------
 ;;;; * Matrix Multiplication
 ;;;
 
@@ -157,7 +314,8 @@ about the Y, Z and X axis and applied in this order."
           (+ (* m.tx n.uz) (* m.ty n.vz) (* m.tz n.wz) (* m.tw n.tz))
           (+ (* m.tx n.uw) (* m.ty n.vw) (* m.tz n.ww) (* m.tw n.tw))))
 
- ;;;;; * Matrix Transpose
+;;;; ----------------------------------------------------------------------------
+;;;; * Matrix Transpose
 
 (defvfun mat-transpose ((m mat) &optional (store mat)) mat
   "Transpose the matrix, rows become columns and vice versa."
@@ -182,8 +340,12 @@ about the Y, Z and X axis and applied in this order."
 
 (defvfun mat4-transpose ((m mat4)) mat4
   "Transpose the matrix."
-  (values m.ux m.vx m.wx m.tx m.uy m.vy m.wy m.ty m.uz m.vz m.wz m.tz m.uw m.vw m.ww m.tw))
+  (values m.ux m.vx m.wx m.tx
+          m.uy m.vy m.wy m.ty
+          m.uz m.vz m.wz m.tz
+          m.uw m.vw m.ww m.tw))
 
+;;;; ----------------------------------------------------------------------------
 ;;;; * Calculate Matrix Determinant
 
 (defvfun mat2-determinant ((m mat2)) scalar
@@ -210,6 +372,7 @@ about the Y, Z and X axis and applied in this order."
         (* m.uw (mat3-determinant* m.vx m.vy m.vz m.wx m.wy m.wz m.tx m.ty m.tz)))))
 
 
+;;;; ----------------------------------------------------------------------------
 ;;;; * Matrix Inversion
 
 (defvfun mat3-invert ((m mat3)) mat3
@@ -229,6 +392,7 @@ about the Y, Z and X axis and applied in this order."
                      (invert det)))))
 
 
+;;;; ----------------------------------------------------------------------------
 ;;;; * Matrix Negation
 ;;;
 
@@ -250,6 +414,7 @@ about the Y, Z and X axis and applied in this order."
           (- m.wx) (- m.wy) (- m.wz) (- m.ww)
           (- m.tx) (- m.ty) (- m.tz) (- m.tw)))
 
+;;;; ----------------------------------------------------------------------------
 ;;;; * Transform Vectors
 ;;;
 
