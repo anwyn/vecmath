@@ -127,9 +127,9 @@ about the Y, Z and X axis and applied in this order."
         (sp (sin e.pitch))
         (cr (cos e.roll))
         (sr (sin e.roll)))
-    (values (* cy cp) sp (- (* sy cp))
-            (+ (* sy sr) (* (- cy) sp cr)) (* cp cr) (+ (* sy sp cr) (* cy sr))
-            (+ (* cy sp sr) (* sy cr)) (* (- cp) sr) (+ (* (- sy) sp sr) (* cy cr))
+    (values (* cy cp) sp (- (* sy cp)) +scalar-zero+
+            (+ (* sy sr) (* (- cy) sp cr)) (* cp cr) (+ (* sy sp cr) (* cy sr))  +scalar-zero+
+            (+ (* cy sp sr) (* sy cr)) (* (- cp) sr) (+ (* (- sy) sp sr) (* cy cr))  +scalar-zero+
             trans.x trans.y trans.z +scalar-one+)))
 
 (defvfun euler-angles<-mat4 ((m mat4)) euler-angles
