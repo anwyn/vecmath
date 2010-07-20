@@ -97,17 +97,22 @@ to the multiple values returned by the FORM."
 (defun expand-vector-arg (vec &optional slot-list)
   (let ((sym (ensure-car vec))
         (type (ensure-cadr vec nil)))
-    (if (or (null type) (not (symbolp type)))
-        (list sym)
-        (let ((*package* (or (symbol-package sym) *package*)))
-          (mapcar (lambda (slot)
-                    (symbolicate sym '#:. slot))
-                  (or slot-list
-                      (get type 'slot-list)
-                      (error 'type-error
-                             :format-control "~a is not a vecmath vector type ~a"
-                             :datum type
-                             :expected-type "defined with DEFVECTOR")))))))
+    (cond ((and type (constantp type))
+           (list sym type))
+          ((or (null type)
+               (eq 'scalar type)
+               (not (symbolp type)))
+           (list sym))
+          (t
+           (let ((*package* (or (symbol-package sym) *package*)))
+             (mapcar (lambda (slot)
+                       (symbolicate sym '#:. slot))
+                     (or slot-list
+                         (get type 'slot-list)
+                         (error 'type-error
+                                :format-control "~a is not a vecmath vector type ~a"
+                                :datum type
+                                :expected-type "defined with DEFVECTOR"))))))))
 
 (defun expand-vector-lambda-list (vecs)
   (mapcan #'expand-vector-arg vecs))
@@ -241,18 +246,25 @@ to the multiple values returned by the FORM."
 (defun emit-declarations (return-type scalar-type name args &key (inline t))
   `((declaim ,@(when inline (list (list 'inline name)))
              (ftype (function
-                     ,(mapcar (lambda (arg)
-                                (if (atom arg)
-                                    (if (eq arg '&optional)
-                                        arg
-                                        scalar-type)
-                                    (ensure-cadr arg))) args)
+                     ,(let ((&-seen nil))
+                        (mapcar (lambda (arg)
+                                  (if (atom arg)
+                                      (if (or (eq arg '&optional)
+                                              (eq arg '&key))
+                                          (prog1 arg
+                                            (setf &-seen t))
+                                          (if &-seen
+                                              `(or null ,scalar-type)
+                                              scalar-type))
+                                      (if &-seen
+                                          `(or null ,(ensure-cadr arg))
+                                          (ensure-cadr arg)))) args))
                      ,return-type) ,name))))
 
 (defun emit-vector-function (name args doc body)
   `((defun ,name ,(mapcar #'ensure-car args)
       ,doc
-      (with-vectors ,args
+      (with-vectors ,(remove '&optional (remove '&key args))
         ,@body))))
 
 (defun emit-plain-function (name args doc body)
@@ -280,9 +292,13 @@ to the multiple values returned by the FORM."
         (mv-name (symbolicate name "%")))
     (flet ((option? (option default)
              (getf options option default)))
-      (let ((scalar-args (and (or (eq type 'scalar) slot-list)
-                              (option? :scalar-args-version t)
-                              (expand-vector-lambda-list arglist))))
+      (let* ((car-args (mapcar #'ensure-car arglist))
+             (no&-args (remove '&key (remove '&optional car-args)))
+             (scalar-args (and (or (eq type 'scalar) slot-list)
+                               (option? :scalar-args-version t)
+                               (expand-vector-lambda-list arglist)))
+             (scalar-no&-args (remove '&key (remove '&optional scalar-args))))
+
         (cond ((eq type 'scalar)
                (nconc (list 'progn)
                       (emit-declarations type element-type name arglist :inline (option? :inline t))
@@ -319,14 +335,14 @@ and returns the result as multiple values.")
                                          element-type mv-name arglist)
                       (emit-vector-function mv-name arglist doc
                                             (if (option? :scalar-args-version t)
-                                                `((,scalar-args-name ,@scalar-args))
+                                                `((,scalar-args-name ,@scalar-no&-args))
                                                 body))
 
                       ;; main function
                       (emit-declarations type element-type name arglist)
                       (emit-plain-function name arglist doc
                                            `((multiple-value-call #',type
-                                               (,mv-name ,@(mapcar #'ensure-car arglist)))))
+                                               (,mv-name ,@no&-args))))
 
                       ;; destructive function
                       (when (and (option? :destructive-version t)
@@ -337,7 +353,7 @@ and returns the result as multiple values.")
 Will destructivly modify the the first parameter to contain the result
 of the operation.")
                                                      `((setf (values ,@(expand-vector-arg (first arglist)))
-                                                             (,mv-name ,@(mapcar #'ensure-car arglist)))
+                                                             (,mv-name ,@no&-args))
                                                        ,(ensure-car (first arglist)))))))))))))
 
 

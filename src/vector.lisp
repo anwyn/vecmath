@@ -50,6 +50,13 @@
 (defparameter +vec3-y-axis+ (vec3 +scalar-zero+ +scalar-one+ +scalar-zero+))
 (defparameter +vec3-z-axis+ (vec3 +scalar-zero+ +scalar-zero+ +scalar-one+))
 
+;;;; ----------------------------------------------------------------------------
+;;;; * Constructors and Converters
+
+(defvfun vec3<-vec2 ((v vec2) &optional (s scalar)) vec3
+  (let ((z (or s +scalar-zero+)))
+    (values v.x v.y z)))
+
 ;;;; ---------------------------------------------------------------------------
 ;;;; * Functions for vectors of arbitrary length.
 ;;;

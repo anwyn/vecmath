@@ -15,7 +15,8 @@
                `(defun ,(symbolicate '#:ensure- place) (place &optional (default place))
                 (if (atom place) default (,place place)))))
   (define-ensure-foo car)
-  (define-ensure-foo cadr))
+  (define-ensure-foo cadr)
+  (define-ensure-foo caddr))
 
 (defmacro with-elements (vars vector &body body)
   "Like with-slots, only for arrays.
