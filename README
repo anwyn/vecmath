@@ -1,1 +1,13 @@
-README
+This is a simple linear algebra math library in Common-Lisp.
+It provides some simple algorithms commonly used for computer
+graphics, like rotation and transformations.
+
+The aim is to have algorithms that work on simple vector/matrix types,
+but can also be mapped over a flat array of this vector types. 
+
+This library is mainly a test bed for me, to experiment with macros,
+the type system and micro optimizations.
+
+
+
+
