@@ -95,7 +95,7 @@ to the multiple values returned by the FORM."
 ;;;; * Macro definitions
 
 (defun expand-vector-arg (vec &optional slot-list)
-  (let ((sym (ensure-car vec))
+  (let ((sym (ensure-caar vec))
         (type (ensure-cadr vec nil)))
     (cond ((and type (constantp type))
            (list sym type))
@@ -264,7 +264,14 @@ to the multiple values returned by the FORM."
 (defun emit-vector-function (name args doc body)
   `((defun ,name ,(mapcar #'ensure-car args)
       ,doc
-      (with-vectors ,(remove '&optional (remove '&key args))
+      (with-vectors ,(remove '&optional
+                             (remove '&key
+                                     (mapcar (lambda (x)
+                                               (if (atom x)
+                                                   x
+                                                   (list (ensure-caar x)
+                                                         (ensure-cadr x))))
+                                             args)))
         ,@body))))
 
 (defun emit-plain-function (name args doc body)
@@ -292,7 +299,7 @@ to the multiple values returned by the FORM."
         (mv-name (symbolicate name "%")))
     (flet ((option? (option default)
              (getf options option default)))
-      (let* ((car-args (mapcar #'ensure-car arglist))
+      (let* ((car-args (mapcar #'ensure-caar arglist))
              (no&-args (remove '&key (remove '&optional car-args)))
              (scalar-args (and (or (eq type 'scalar) slot-list)
                                (option? :scalar-args-version t)
@@ -304,8 +311,8 @@ to the multiple values returned by the FORM."
                       (emit-declarations type element-type name arglist :inline (option? :inline t))
                       (emit-vector-function name arglist doc body)
                       (when (option? :scalar-args-version t)
-                        (nconc (emit-declarations type element-type scalar-args-name scalar-args)
-                               (emit-plain-function scalar-args-name scalar-args
+                        (nconc (emit-declarations type element-type scalar-args-name scalar-no&-args)
+                               (emit-plain-function scalar-args-name scalar-no&-args
                                                     (concatenate 'string doc "
 Multiple values version. Takes the individual vector element as arguments.")
                                                     body)))))
@@ -323,8 +330,8 @@ Multiple values version. Takes the individual vector element as arguments.")
                       ;; function with flat arglist
                       (when (option? :scalar-args-version t)
                         (nconc (emit-declarations (slot-list-to-values element-type slot-list)
-                                                  element-type scalar-args-name scalar-args)
-                               (emit-plain-function scalar-args-name scalar-args
+                                                  element-type scalar-args-name scalar-no&-args)
+                               (emit-plain-function scalar-args-name scalar-no&-args
                                                     (concatenate 'string doc "
 Multiple values version. Takes individual vector components as arguments
 and returns the result as multiple values.")
@@ -352,7 +359,7 @@ and returns the result as multiple values.")
                                                      (concatenate 'string doc "
 Will destructivly modify the the first parameter to contain the result
 of the operation.")
-                                                     `((setf (values ,@(expand-vector-arg (first arglist)))
+                                                     `((setf (values ,@(expand-vector-arg (first arglist) slot-list))
                                                              (,mv-name ,@no&-args))
                                                        ,(ensure-car (first arglist)))))))))))))
 

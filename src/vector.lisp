@@ -53,9 +53,8 @@
 ;;;; ----------------------------------------------------------------------------
 ;;;; * Constructors and Converters
 
-(defvfun vec3<-vec2 ((v vec2) &optional (s scalar)) vec3
-  (let ((z (or s +scalar-zero+)))
-    (values v.x v.y z)))
+(defvfun vec3<-vec2 ((v vec2) &optional ((s 1.0) scalar)) vec3
+  (values v.x v.y s))
 
 ;;;; ---------------------------------------------------------------------------
 ;;;; * Functions for vectors of arbitrary length.

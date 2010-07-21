@@ -18,6 +18,9 @@
   (define-ensure-foo cadr)
   (define-ensure-foo caddr))
 
+(defun ensure-caar (place)
+  (ensure-car (ensure-car place)))
+
 (defmacro with-elements (vars vector &body body)
   "Like with-slots, only for arrays.
 Each VAR in VARS can either be a symbol, or a list with a symbol as
