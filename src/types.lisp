@@ -38,11 +38,6 @@ will be flattened into the resulting vector."
                           (sequence (map 'list #'ensure-scalar a))))
                       args) 'vec)))
 
-(define-compiler-macro vec (&whole form &rest args)
-  (cond ((every #'numberp args)
-         (coerce (mapcar #'ensure-scalar args) 'vec))
-        (t form)))
-
 (defun make-vec (&key size (initial-element +scalar-zero+))
   (make-array size :element-type 'scalar :initial-element initial-element))
 
@@ -70,7 +65,6 @@ to the multiple values returned by the FORM."
          (setf (values ,@unique-slots) ,form))
        ,vec)))
 
-
 ;;;; ----------------------------------------------------------------------------
 ;;;; ** A square matrix type
 
@@ -94,68 +88,75 @@ to the multiple values returned by the FORM."
 ;;;; ----------------------------------------------------------------------------
 ;;;; * Macro definitions
 
-(defun expand-vector-arg (vec &optional slot-list)
-  (let ((sym (ensure-caar vec))
-        (type (ensure-cadr vec nil)))
-    (cond ((and type (constantp type))
-           (list sym type))
-          ((or (null type)
-               (eq 'scalar type)
-               (not (symbolp type)))
-           (list sym))
-          (t
-           (let ((*package* (or (symbol-package sym) *package*)))
-             (mapcar (lambda (slot)
-                       (symbolicate sym '#:. slot))
-                     (or slot-list
-                         (get type 'slot-list)
-                         (error 'type-error
-                                :format-control "~a is not a vecmath vector type ~a"
-                                :datum type
-                                :expected-type "defined with DEFVECTOR"))))))))
-
-(defun parse-vector-lambda-arg (arg &key (default-type 'scalar))
-  "Parse a single vector lambda list arg into a 4 values:
-
-- var-symbol
-- type
-- initform
-- supplied-symbol
-"
-  (etypecase arg
-    (atom (values arg default-type nil nil))
-    (list (let ((var (car arg))
-                (type (or (second arg) default-type)))
-            (values (ensure-car var)
-                    type
-                    (ensure-cadr var nil)
-                    (ensure-caddr var nil))))))
-
 (defun parse-vector-lambda-list (arglist
                                  &key
                                  with-keywords
                                  with-types
                                  with-initforms
                                  (default-type 'scalar))
-  (let (result)
-    (dolist (arg arglist result)
-      (cond ((member arg lambda-list-keywords)
-             (when with-keywords (push arg result)))
-            (t
-             (multiple-value-bind (var type initform suppliedp)
-                 (parse-vector-lambda-arg arg)
-               (let ((varspec (list var initform suppliedp)))
-                 (push (if with-types
-                           (cons varspec type)
-                           (if with-initforms
-                               varspec
-                               (car varspec)))
-                       result))))))))
+  "Parse a vector lambda list into several other forms.
+"
+  (flet ((parse-arg (arg)
+           "Parse a single vector lambda list arg into a 4 values:
+- var-symbol
+- type
+- initform
+- supplied-symbol
+"
+           (etypecase arg
+             (atom (values arg default-type nil nil))
+             (list (let ((var (car arg))
+                         (type (or (second arg) default-type)))
+                     (values (ensure-car var)
+                             type
+                             (ensure-cadr var nil)
+                             (ensure-caddr var nil)))))))
 
-
+    (let (result)
+      (dolist (arg arglist (nreverse result))
+        (cond ((member arg lambda-list-keywords)
+               (when with-keywords (push arg result)))
+              (t
+               (multiple-value-bind (var type initform suppliedp)
+                   (parse-arg arg)
+                 (let ((varspec (if with-initforms
+                                    (if (or initform suppliedp)
+                                        (cons var
+                                              (cons initform
+                                                    (when suppliedp
+                                                      (cons suppliedp nil))))
+                                        var)
+                                    var)))
+                   (push (if with-types
+                             (list varspec type)
+                             varspec)
+                         result)))))))))
 
 (defun expand-vector-lambda-list (vecs)
-  (mapcan #'expand-vector-arg vecs))
+  "Expand a vector lamda list into a flat argument list.
+This will be done as follows:
+
+1. drop all lambda-list-keywords
+2. drop all initforms
+3. For every arg of vector type substitute the slots concated with the
+   parameter name: ((v vec2)) becomes (v.x v.y)"
+  (flet ((expand-arg (vec)
+           (let ((sym (ensure-car vec))
+                 (type (ensure-cadr vec nil)))
+             (cond ((or (null type)
+                        (eq 'scalar type)
+                        (not (symbolp type)))
+                    (list sym))
+                   (t
+                    (let ((*package* (or (symbol-package sym) *package*)))
+                      (mapcar (lambda (slot)
+                                (symbolicate sym '#:. slot))
+                              (or (get type 'slot-list)
+                                  (error 'type-error
+                                         :format-control "~a is not a vecmath vector type ~a"
+                                         :datum type
+                                         :expected-type "defined with DEFVECTOR")))))))))
+    (mapcan #'expand-arg (parse-vector-lambda-list vecs :with-types t))))
 
 (defmacro with-vector ((form type) &body body)
   (let ((name (ensure-car form))
@@ -163,8 +164,8 @@ to the multiple values returned by the FORM."
         (slot-list (get type 'slot-list)))
     (if slot-list
         `(let ((,name ,init))
-           (declare (type (or null vec) ,name) (ignorable ,name))
-           (with-elements ,(expand-vector-arg (list name type) slot-list)
+           (declare (type (or null ,type) ,name) (ignorable ,name))
+           (with-elements ,(expand-vector-lambda-list (list (list name type)))
              ,name
              ,@body))
         `(let ((,name ,init))
@@ -201,13 +202,7 @@ to the multiple values returned by the FORM."
                                 ,type)))
 
       (defun ,type (&optional ,@default-args)
-        (vec ,@simple-args))
-
-      (define-compiler-macro ,type (&whole form &optional ,@default-args)
-        (let ((args (list ,@simple-args)))
-          (cond ((every #'numberp args)
-                 (coerce (mapcar #'ensure-scalar args) ',type))
-                (t form)))))))
+        (vec ,@simple-args)))))
 
 
 (defun emit-meta-data (type element-type slots)
@@ -257,10 +252,9 @@ to the multiple values returned by the FORM."
                  (type (or null vec) target))
         (let* ((l (or length (min (length source) (length target))))
                (tgt (or target (make-vec :size l))))
-          (loop for len = l then (- len ,len)
-                for i = (* source-offset ,len) then (+ i ,len)
-                for j = (* target-offset 3) then (+ i ,len)
-                while (>= len ,len)
+          (loop for len fixnum from l above (1- ,len) by ,len
+                for i fixnum from (* source-offset ,len) by ,len
+                for j fixnum from (* target-offset ,len) by ,len
                 do (with-elements ,(add-offset 'j unique-slots) tgt
                      (setf (values ,@unique-slots)
                            (with-elements ,(add-offset 'i unique-slots) source
@@ -302,20 +296,13 @@ to the multiple values returned by the FORM."
                      ,return-type) ,name))))
 
 (defun emit-vector-function (name args doc body)
-  `((defun ,name ,(mapcar #'ensure-car args)
+  `((defun ,name ,(parse-vector-lambda-list args :with-keywords t :with-initforms t)
       ,doc
-      (with-vectors ,(remove '&optional
-                             (remove '&key
-                                     (mapcar (lambda (x)
-                                               (if (atom x)
-                                                   x
-                                                   (list (ensure-caar x)
-                                                         (ensure-cadr x))))
-                                             args)))
+      (with-vectors ,(parse-vector-lambda-list args :with-types t)
         ,@body))))
 
 (defun emit-plain-function (name args doc body)
-  `((defun ,name ,(mapcar #'ensure-car args)
+  `((defun ,name ,(parse-vector-lambda-list args :with-keywords t :with-initforms t)
       ,doc
       ,@body)))
 
@@ -339,20 +326,18 @@ to the multiple values returned by the FORM."
         (mv-name (symbolicate name "%")))
     (flet ((option? (option default)
              (getf options option default)))
-      (let* ((car-args (mapcar #'ensure-caar arglist))
-             (no&-args (remove '&key (remove '&optional car-args)))
+      (let* ((car-args (parse-vector-lambda-list arglist))
              (scalar-args (and (or (eq type 'scalar) slot-list)
                                (option? :scalar-args-version t)
-                               (expand-vector-lambda-list arglist)))
-             (scalar-no&-args (remove '&key (remove '&optional scalar-args))))
+                               (expand-vector-lambda-list arglist))))
 
         (cond ((eq type 'scalar)
                (nconc (list 'progn)
                       (emit-declarations type element-type name arglist :inline (option? :inline t))
                       (emit-vector-function name arglist doc body)
                       (when (option? :scalar-args-version t)
-                        (nconc (emit-declarations type element-type scalar-args-name scalar-no&-args)
-                               (emit-plain-function scalar-args-name scalar-no&-args
+                        (nconc (emit-declarations type element-type scalar-args-name scalar-args)
+                               (emit-plain-function scalar-args-name scalar-args
                                                     (concatenate 'string doc "
 Multiple values version. Takes the individual vector element as arguments.")
                                                     body)))))
@@ -370,8 +355,8 @@ Multiple values version. Takes the individual vector element as arguments.")
                       ;; function with flat arglist
                       (when (option? :scalar-args-version t)
                         (nconc (emit-declarations (slot-list-to-values element-type slot-list)
-                                                  element-type scalar-args-name scalar-no&-args)
-                               (emit-plain-function scalar-args-name scalar-no&-args
+                                                  element-type scalar-args-name scalar-args)
+                               (emit-plain-function scalar-args-name scalar-args
                                                     (concatenate 'string doc "
 Multiple values version. Takes individual vector components as arguments
 and returns the result as multiple values.")
@@ -382,14 +367,14 @@ and returns the result as multiple values.")
                                          element-type mv-name arglist)
                       (emit-vector-function mv-name arglist doc
                                             (if (option? :scalar-args-version t)
-                                                `((,scalar-args-name ,@scalar-no&-args))
+                                                `((,scalar-args-name ,@scalar-args))
                                                 body))
 
                       ;; main function
                       (emit-declarations type element-type name arglist)
                       (emit-plain-function name arglist doc
                                            `((multiple-value-call #',type
-                                               (,mv-name ,@no&-args))))
+                                               (,mv-name ,@car-args))))
 
                       ;; destructive function
                       (when (and (option? :destructive-version t)
@@ -399,9 +384,9 @@ and returns the result as multiple values.")
                                                      (concatenate 'string doc "
 Will destructivly modify the the first parameter to contain the result
 of the operation.")
-                                                     `((setf (values ,@(expand-vector-arg (first arglist) slot-list))
-                                                             (,mv-name ,@no&-args))
-                                                       ,(ensure-car (first arglist)))))))))))))
+                                                     `((setf (values ,@(expand-vector-lambda-list (list (first arglist))))
+                                                             (,mv-name ,@car-args))
+                                                       ,(ensure-car (first car-args)))))))))))))
 
 
 ;;; types.lisp ends here

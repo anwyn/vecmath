@@ -54,6 +54,7 @@
 ;;;; * Constructors and Converters
 
 (defvfun vec3<-vec2 ((v vec2) &optional ((s 1.0) scalar)) vec3
+  "Convert a 2 dimensional vector to 3 dimensional vector."
   (values v.x v.y s))
 
 ;;;; ---------------------------------------------------------------------------
