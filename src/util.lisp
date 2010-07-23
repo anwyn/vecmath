@@ -18,8 +18,11 @@
   (define-ensure-foo cadr)
   (define-ensure-foo caddr))
 
-(defun ensure-caar (place)
-  (ensure-car (ensure-car place)))
+(defun ensure-caar (place &optional (default place))
+  (ensure-car (ensure-car place) default))
+
+(defun ensure-cadar (place &optional (default place))
+  (ensure-cadr (ensure-car place) default))
 
 (defmacro with-elements (vars vector &body body)
   "Like with-slots, only for arrays.

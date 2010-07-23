@@ -114,6 +114,46 @@ to the multiple values returned by the FORM."
                                 :datum type
                                 :expected-type "defined with DEFVECTOR"))))))))
 
+(defun parse-vector-lambda-arg (arg &key (default-type 'scalar))
+  "Parse a single vector lambda list arg into a 4 values:
+
+- var-symbol
+- type
+- initform
+- supplied-symbol
+"
+  (etypecase arg
+    (atom (values arg default-type nil nil))
+    (list (let ((var (car arg))
+                (type (or (second arg) default-type)))
+            (values (ensure-car var)
+                    type
+                    (ensure-cadr var nil)
+                    (ensure-caddr var nil))))))
+
+(defun parse-vector-lambda-list (arglist
+                                 &key
+                                 with-keywords
+                                 with-types
+                                 with-initforms
+                                 (default-type 'scalar))
+  (let (result)
+    (dolist (arg arglist result)
+      (cond ((member arg lambda-list-keywords)
+             (when with-keywords (push arg result)))
+            (t
+             (multiple-value-bind (var type initform suppliedp)
+                 (parse-vector-lambda-arg arg)
+               (let ((varspec (list var initform suppliedp)))
+                 (push (if with-types
+                           (cons varspec type)
+                           (if with-initforms
+                               varspec
+                               (car varspec)))
+                       result))))))))
+
+
+
 (defun expand-vector-lambda-list (vecs)
   (mapcan #'expand-vector-arg vecs))
 
