@@ -109,21 +109,83 @@ with all elements initialized to zero."
   (the vec (or store (copy-seq template))))
 
 
-(defmacro swizzle* (v &rest accessors)
-  `(with-elements ((x 0) y z w
-                   (r 0) g b a
-                   (s 0) u p q) ,v
-     (values ,@accessors)))
+;;;; ----------------------------------------------------------------------------
+;;;; * Swizzling
+;;;
 
-(defmacro swizzle (v &rest accessors)
+(declaim (inline %swizzle-idx)
+         (ftype (function (character) fixnum) %swizzle-idx))
 
-  `(with-elements ((x 0) y z w
-                   (r 0) g b a
-                   (s 0) u p q) ,v
-     ,@(if (= 1 (length accessors))
-           accessors
-           (list (cons 'vec accessors)))))
+(defun %swizzle-idx (char)
+  (ecase (char-upcase char)
+    ((#\X #\R #\S) 0)
+    ((#\Y #\G #\T) 1)
+    ((#\Z #\B #\P) 2)
+    ((#\W #\A #\Q) 3)))
 
+(defun %swizzle-indices (spec)
+  (let ((subscripts (string spec)))
+    (map 'list #'%swizzle-idx subscripts)))
+
+(defmacro swizzle* (vec spec)
+  (let ((v (gensym "V")))
+    `(let ((,v ,vec))
+       (values ,@(loop :for n :in (%swizzle-indices spec)
+                       :collect `(aref ,v ,n))))))
+
+(declaim (inline swizzle)
+         (ftype (function (vec (or string symbol)) (or scalar vec)) swizzle))
+
+(defun swizzle (vec spec)
+  "Address vector elements by names."
+  (let* ((spec (string spec))
+         (len (length spec)))
+    (if (= 1 len)
+        (aref vec (%swizzle-idx (aref spec 0)))
+        (loop :with result := (make-vec :size len)
+              :for i :from 0 :below len
+              :do (setf (aref result i)
+                        (aref vec (%swizzle-idx (aref spec i))))
+              :finally (return result)))))
+
+(define-compiler-macro swizzle (&whole form vec spec)
+  (if (constantp spec)
+      (let* ((v (gensym "V"))
+             (spec (string spec))
+             (indices (%swizzle-indices spec))
+             (len (length indices)))
+        (if (= 1 len)
+            `(aref ,vec ,(%swizzle-idx (aref spec 0)))
+            `(let ((,v ,vec))
+               (,(case len
+                   (2 'vec2)
+                   (3 'vec3)
+                   (4 'vec4)
+                   (t 'vec))
+                ,@(loop :for n :in indices
+                        :collect `(aref ,v ,n))))))
+      form))
+
+(defsetf swizzle (vec spec) (src-vec)
+  `(loop :for n :in ',@(list (%swizzle-indices spec))
+         :for m :across ,src-vec
+         :do (setf (aref ,vec n) m)
+         :finally (return ,vec)))
+
+(defmacro with-swizzle (&body body)
+  (let ((accessors (remove-duplicates
+                    (remove-if-not (lambda (sym)
+                                     (position #\. (string sym)))
+                                   (remove-if-not 'symbolp
+                                                  (alexandria:flatten body))))))
+    `(symbol-macrolet ,(mapcar (lambda (acc)
+                                 (let* ((name (string acc))
+                                        (vec (symbolicate (subseq name 0 (position #\. name))))
+                                        (spec (subseq name (1+ (position #\. name)))))
+                                   `(,acc
+                                     (swizzle ,vec ,spec))))
+                              accessors)
+      ,@body)))
 
 ;;;; ----------------------------------------------------------------------------
 ;;;; * Vector Multiplication

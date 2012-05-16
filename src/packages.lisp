@@ -176,7 +176,10 @@
            #:axis/angle<-quat     #:axis/angle<-quat*
            #:quat<-axis/angle     #:quat<-axis/angle*
            #:quat<-axis-angle     #:quat<-axis-angle*
-           ))
+
+           #:swizzle
+           #:with-swizzle
+           #:swizzle*))
 
 
 ;;;;@include "util.lisp"
