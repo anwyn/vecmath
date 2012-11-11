@@ -48,7 +48,7 @@
           v.x v.y))
 
 (defvfun mat2<-rows ((a vec2) (b vec2)) mat2
-  "Construct a 2x2 matrix from two column vectors."
+  "Construct a 2x2 matrix from two row vectors."
   (values a.x b.x
           a.y b.y))
 
@@ -64,7 +64,7 @@
           a.y b.y c.y
           a.z b.z c.z))
 
-(defvfun mat4<-columns ((u vec4) (v vec4) (w vec4) (trans vec4)) mat4
+(defvfun mat4<-columns ((u vec4) (v vec4) (w vec4) ((trans #(0.0 0.0 0.0 1.0)) vec4)) mat4
   "Construct a 4x4 matrix from four column vectors."
   (values u.x u.y u.z u.w
           v.x v.y v.z v.w
@@ -72,7 +72,7 @@
           trans.x trans.y trans.z trans.w))
 
 (defvfun mat4<-rows ((a vec4) (b vec4) (c vec4) (d vec4)) mat4
-  "Construct a 4x4 matrix from four column vectors."
+  "Construct a 4x4 matrix from four row vectors."
   (values a.x b.x c.x d.x
           a.y b.y c.y d.y
           a.z b.z c.z d.z

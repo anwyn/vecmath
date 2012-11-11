@@ -1,13 +1,35 @@
 This is a simple linear algebra math library in Common-Lisp.
+It contains datatypes for 2 and 3 dimensions.
+
 It provides some simple algorithms commonly used for computer
-graphics, like rotation and transformations.
+graphics, like rotation, transformation, scaling and interpolation
+of vectors. It also provides functions to convert between different
+representations of rotations, namely matrices, quaternions, euler
+angles (yaw, pitch, roll) and axis/angle.
 
 The aim is to have algorithms that work on simple vector/matrix types,
-but can also be mapped over a flat array of this vector types. 
+but can also be mapped over a flat array of this vector types, so you
+can write:
 
-This library is mainly a test bed for me, to experiment with macros,
-the type system and micro optimizations.
+  (defparameter *coords* #(1.0 2.0 3.0  1.0 2.0 3.0 ...))
+  (defparameter *world-transform*  (mat4))
 
+  (flet ((transform (x y z)
+            (with-matrix (m *world-transform*)
+	      (multiple-value-call #'vec3-transform*
+	      			   (values x y z)
+				   (mat4->values m)))))
+    (vec3-map nil #'transform *coords*))
+
+The library should be as efficient as possible without resorting to
+implementation specific tricks. It excessivly uses multiple-values for
+this purpose. This is probably overdone and might even hurt
+performance under some implementations. My initial benchmarking with
+sbcl and ccl did show some promising numbers compared to a straight
+forward implementation of the same algorithms.
+
+See also:
+ - sb-cga
 
 
 
