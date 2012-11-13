@@ -64,7 +64,7 @@
           a.y b.y c.y
           a.z b.z c.z))
 
-(defvfun mat4<-columns ((u vec4) (v vec4) (w vec4) ((trans #(0.0 0.0 0.0 1.0)) vec4)) mat4
+(defvfun mat4<-columns ((u vec4) (v vec4) (w vec4) (trans vec4)) mat4
   "Construct a 4x4 matrix from four column vectors."
   (values u.x u.y u.z u.w
           v.x v.y v.z v.w
