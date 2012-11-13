@@ -71,4 +71,29 @@
          (vec3-dot (vec3 1.0 1.0 1.0) (vec3 3.0 3.0 3.0))
          (vec3-dot*  1.0 1.0 1.0 3.0 3.0 3.0))))
 
+(deftest swizzle-test ()
+  (let ((v (vec4 1.0 2.0 3.0 4.0))
+        (color (vec4 1.1 2.2 3.3 4.4))
+        (coord (vec4 1.2 2.3 3.4 4.5)))
+    (is (= 1.0 (swizzle v :x))
+        (= 2.0 (swizzle v :y))
+        (= 3.0 (swizzle v :z))
+        (= 4.0 (swizzle v :w)))
+    (is (= 1.1 (swizzle color :r))
+        (= 2.2 (swizzle color :g))
+        (= 3.3 (swizzle color :b))
+        (= 4.4 (swizzle color :a)))
+    (is (= 1.2 (swizzle coord :s))
+        (= 2.3 (swizzle coord :t))
+        (= 3.4 (swizzle coord :p))
+        (= 4.5 (swizzle coord :q)))
+    (is (equal? #(1.0 1.0) (swizzle v :xx))
+        (equal? #(2.0 1.0) (swizzle v :yx)))))
+
+(deftest with-swizzle-test ()
+  (let ((v (vec4  1.0 2.0 3.0 4.0)))
+    (with-swizzle
+      (is (equal? #(1.0 3.0) v.xz)
+          (equal? #(4.0 2.0 3.0) v.wyz)))))
+
 ;;; vector-tests.lisp ends here
