@@ -16,7 +16,7 @@
 (in-package :common-lisp-user)
 
 (defpackage :vecmath
-    (:nicknames :vm)
+  (:nicknames :vm)
   (:use :common-lisp)
   (:import-from :alexandria
                 #:symbolicate)
@@ -89,6 +89,7 @@
            #:vec3-interpolate     #:vec3-interpolate*     #:vec3-interpolate%
            #:vec3-cross           #:vec3-cross*           #:vec3-cross%
            #:vec3-transform       #:vec3-transform*       #:vec3-transform%
+           #:vec3-transformer     #:vec3-transformer*
 
            #:vec4
            #:make-vec4
@@ -130,7 +131,6 @@
            #:make-mat3
            #:mat3-map
            #:mat3-copy
-           #:mat3<-euler          #:mat3<-euler*
            #:mat3-scale           #:mat3-scale*           #:mat3-scale%
            #:mat3-mul             #:mat3-mul*
            #:mat3-tmul            #:mat3-tmul*            #:mat3-tmul%
@@ -176,6 +176,15 @@
            #:axis/angle<-quat     #:axis/angle<-quat*
            #:quat<-axis/angle     #:quat<-axis/angle*
            #:quat<-axis-angle     #:quat<-axis-angle*
+
+           #:euler-angles
+           #:make-euler-angles
+           #:euler-angles-map
+           #:euler-angles-copy
+           #:mat3<-euler-angles   #:mat3<-euler-angles*
+           #:euler-angles<-mat3   #:euler-angles<-mat3*
+           #:mat4<-euler-angles   #:mat4<-euler-angles*
+           #:euler-angles<-mat4   #:euler-angles<-mat4*
 
            #:swizzle
            #:with-swizzle

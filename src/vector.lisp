@@ -53,9 +53,13 @@
 ;;;; ----------------------------------------------------------------------------
 ;;;; * Constructors and Converters
 
-(defvfun vec3<-vec2 ((v vec2) &optional ((s 1.0) scalar)) vec3
+(defvfun vec3<-vec2 ((v vec2) &optional ((z 0.0) scalar)) vec3
   "Convert a 2 dimensional vector to 3 dimensional vector."
-  (values v.x v.y s))
+  (values v.x v.y z))
+
+(defvfun vec4<-vec3 ((v vec3) &optional ((w 1.0) scalar)) vec4
+  "Convert a 3 dimensional vector to a homogenous vector."
+  (values v.x v.y v.z w))
 
 ;;;; ---------------------------------------------------------------------------
 ;;;; * Functions for vectors of arbitrary length.

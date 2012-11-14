@@ -41,4 +41,15 @@
   (is (= 1.0 (mat3-determinant (mat3))))
   (is (= 1.0 (mat4-determinant (mat4)))))
 
+
+;;;; ----------------------------------------------------------------------------
+;;;; * Transformation
+
+(deftest matrix-transformer-test ()
+  (is (equalp (list 6.0 2.0 3.0)
+              (multiple-value-list
+               (funcall (vec3-transformer (mat4<-euler-angles (euler-angles 0.0 0.0 0.0)
+                                                              (vec3 5.0 0.0 0.0)))
+                        1.0 2.0 3.0)))))
+
 ;;; matrix-tests.lisp ends here

@@ -16,18 +16,18 @@
 
 (defvector mat2
     ((ux 1.0) uy
-     vx (vy 1.0)))
+      vx      (vy 1.0)))
 
 (defvector mat3
-    ((ux 1.0) uy      uz
-     vx     (vy 1.0) vz
-     wx      wy      (wz 1.0)))
+    ((ux 1.0) uy       uz
+     vx       (vy 1.0) vz
+     wx       wy       (wz 1.0)))
 
 (defvector mat4
-    ((ux 1.0) uy uz uw
-     vx (vy 1.0) vz vw
-     wx wy (wz 1.0) ww
-     tx ty tz (tw 1.0)))
+    ((ux 1.0) uy       uz       uw
+     vx       (vy 1.0) vz       vw
+     wx       wy       (wz 1.0) ww
+     tx       ty       tz       (tw 1.0)))
 
 (declaim (inline mat-ensure-store))
 (defun mat-ensure-store (template &optional store)
@@ -391,6 +391,7 @@ about the Y, Z and X axis and applied in this order."
                      (- (* m.ux m.vy) (* m.uy m.vx))
                      (invert det)))))
 
+;;; FIXME: mat4 inversion missing
 
 ;;;; ----------------------------------------------------------------------------
 ;;;; * Matrix Negation
@@ -430,16 +431,29 @@ about the Y, Z and X axis and applied in this order."
                              (row-major-aref v j))))
           finally (return dst))))
 
-(defvfun vec2-transform ((v vec2) (m mat2)) vec2
-  "Transform a vector using a matrix."
+(defvfun vec2-rotate ((v vec2) (m mat2)) vec2
+  "Rotate and scale a vector using a matrix."
   (values (+ (* m.ux v.x) (* m.vx v.y))
           (+ (* m.uy v.x) (* m.vy v.y))))
 
-(defvfun vec3-transform ((v vec3) (m mat3)) vec3
+(defvfun vec2-transform ((v vec2) (m mat3)) vec2
+  "Transform a vector using a matrix."
+  (declare (ignore m.uz m.vz m.wz))
+  (values (+ (* m.ux v.x) (* m.vx v.y) m.wx)
+          (+ (* m.uy v.x) (* m.vy v.y) m.wy)))
+
+(defvfun vec3-rotate ((v vec3) (m mat3)) vec3
   "Transform a vector using a matrix."
   (values (+ (* m.ux v.x) (* m.vx v.y) (* m.wx v.z))
           (+ (* m.uy v.x) (* m.vy v.y) (* m.wy v.z))
           (+ (* m.uz v.x) (* m.vz v.y) (* m.wz v.z))))
+
+(defvfun vec3-transform ((v vec3) (m mat4)) vec3
+  "Transform a vector using a matrix."
+  (declare (ignore m.uw m.vw m.ww m.tw))
+  (values (+ (* m.ux v.x) (* m.vx v.y) (* m.wx v.z) m.tx)
+          (+ (* m.uy v.x) (* m.vy v.y) (* m.wy v.z) m.ty)
+          (+ (* m.uz v.x) (* m.vz v.y) (* m.wz v.z) m.tz)))
 
 (defvfun vec4-transform ((v vec4) (m mat4)) vec4
   "Transform a vector using a matrix."
@@ -448,5 +462,20 @@ about the Y, Z and X axis and applied in this order."
           (+ (* m.uz v.x) (* m.vz v.y) (* m.wz v.z) (* m.tz v.w))
           (+ (* m.uw v.x) (* m.vw v.y) (* m.ww v.z) (* m.tw v.w))))
 
+(defvfun vec3-transformer ((m mat4)) function
+  "Make a vector transformer function.
+
+The returned function captures the transformation matrix and can be used to
+transform a number of vectors with the VEC3-MAP function.
+
+It takes the individual vector components as parameters and returns them as
+multiple values."
+  (lambda (x y z)
+    (declare (type scalar x) (type scalar y) (type scalar z))
+    (vec3-transform* x y z
+                     m.ux m.uy m.uz m.uw
+                     m.vx m.vy m.vz m.vw
+                     m.wx m.wy m.wz m.ww
+                     m.tx m.ty m.tz m.tw)))
 
 ;;; matrix.lisp ends here

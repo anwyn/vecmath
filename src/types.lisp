@@ -311,7 +311,8 @@ This will be done as follows:
 
 (defmacro defvfun (name arglist type &body body)
   "Define a vector operation. This macro will define several functions."
-  (let ((element-type (or (get type 'element-type)
+  (let ((element-type (or (when (eq type 'function) 'scalar)
+                          (get type 'element-type)
                           (error 'type-error
                                  :format-control "~a is not a vecmath vector type ~a"
                                  :datum type
@@ -327,11 +328,14 @@ This will be done as follows:
     (flet ((option? (option default)
              (getf options option default)))
       (let* ((car-args (parse-vector-lambda-list arglist))
-             (scalar-args (and (or (eq type 'scalar) slot-list)
+             (scalar-args (and (or (eq type 'scalar)
+                                   (eq type 'function)
+                                   slot-list)
                                (option? :scalar-args-version t)
                                (expand-vector-lambda-list arglist))))
 
-        (cond ((eq type 'scalar)
+        (cond ((or (eq type 'scalar)
+                   (eq type 'function))
                (nconc (list 'progn)
                       (emit-declarations type element-type name arglist :inline (option? :inline t))
                       (emit-vector-function name arglist doc body)

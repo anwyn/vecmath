@@ -11,15 +11,10 @@ The aim is to have algorithms that work on simple vector/matrix types,
 but can also be mapped over a flat array of this vector types, so you
 can write:
 
-  (defparameter *coords* #(1.0 2.0 3.0  1.0 2.0 3.0 ...))
+  (defparameter *coords* (vec 1.0 2.0 3.0  1.0 2.0 3.0  ...))
   (defparameter *world-transform*  (mat4))
 
-  (flet ((transform (x y z)
-            (with-matrix (m *world-transform*)
-	      (multiple-value-call #'vec3-transform*
-	      			   (values x y z)
-				   (mat4->values m)))))
-    (vec3-map nil #'transform *coords*))
+  (vec3-map nil (vec3-transformer *world-transform*) *coords*))
 
 The library should be as efficient as possible without resorting to
 implementation specific tricks. It excessivly uses multiple-values for
@@ -28,8 +23,9 @@ performance under some implementations. My initial benchmarking with
 sbcl and ccl did show some promising numbers compared to a straight
 forward implementation of the same algorithms.
 
-See also:
- - sb-cga
+For similar approaches see also:
+ - sb-cga: http://nikodemus.github.com/sb-cga/
+ - cl-tuples: http://repo.or.cz/w/cl-tuples.git
 
 
 
