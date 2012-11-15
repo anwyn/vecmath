@@ -92,8 +92,18 @@
 
 (deftest with-swizzle-test ()
   (let ((v (vec4  1.0 2.0 3.0 4.0)))
-    (with-swizzle
+    (with-swizzle (v)
       (is (equal? #(1.0 3.0) v.xz)
-          (equal? #(4.0 2.0 3.0) v.wyz)))))
+          (equal? #(4.0 2.0 3.0) v.wyz))
+      (setf v.x 5.0)
+      (setf v.yz (vec2 6.0 7.0))
+      (setf v.zw 7.0)
+      (is (equal? #(5.0 6.0 7.0 7.0) v))))
+  (with-swizzle ((v (vec4  1.0 2.0 3.0 4.0)))
+    (is (equal? #(1.0 3.0) v.xz)
+        (equal? #(4.0 2.0 3.0) v.wyz)))
+  (with-swizzle ((u (vec4  1.0 2.0 3.0 4.0))
+                 (v (vec4  4.0 3.0 2.0 1.0)))
+    (is (equal? u.xyzw v.wzyx))))
 
 ;;; vector-tests.lisp ends here

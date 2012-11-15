@@ -171,25 +171,51 @@ with all elements initialized to zero."
       form))
 
 (defsetf swizzle (vec spec) (src-vec)
-  `(loop :for n :in ',@(list (%swizzle-indices spec))
-         :for m :across ,src-vec
-         :do (setf (aref ,vec n) m)
-         :finally (return ,vec)))
+  (let ((v (gensym))
+        (src (gensym)))
+    `(let ((,v ,vec)
+           (,src ,src-vec))
+       (etypecase ,src
+         (scalar
+          (loop :for n :in ',@(list (%swizzle-indices spec))
+                :do (setf (aref ,v n) ,src)
+                :finally (return ,v)))
+         (vec
+          (loop :for n :in ',@(list (%swizzle-indices spec))
+                :for m :across ,src
+                :do (setf (aref ,v n) m)
+                :finally (return ,v)))))))
 
-(defmacro with-swizzle (&body body)
-  (let ((accessors (remove-duplicates
-                    (remove-if-not (lambda (sym)
-                                     (position #\. (string sym)))
-                                   (remove-if-not 'symbolp
-                                                  (alexandria:flatten body))))))
-    `(symbol-macrolet ,(mapcar (lambda (acc)
-                                 (let* ((name (string acc))
-                                        (vec (symbolicate (subseq name 0 (position #\. name))))
-                                        (spec (subseq name (1+ (position #\. name)))))
-                                   `(,acc
-                                     (swizzle ,vec ,spec))))
-                              accessors)
-      ,@body)))
+(defmacro with-swizzle ((&rest vectors) &body body)
+  (let* ((vecs (mapcar #'ensure-car vectors))
+         (bindings (mapcar (lambda (v)
+                             (if (atom v)
+                                 (list v v)
+                                 v))
+                           vectors))
+         (valid-names (mapcar (lambda (sym)
+                                (concatenate 'string (string sym) "."))
+                              vecs))
+         (accessors (remove-duplicates
+                     (remove-if-not (lambda (sym)
+                                      (let ((cand (string sym)))
+                                        (some (lambda (name)
+                                                (and (> (length cand)
+                                                        (length name))
+                                                     (string= name
+                                                              (subseq cand 0 (length name)))))
+                                              valid-names)))
+                                    (remove-if-not 'symbolp (alexandria:flatten body))))))
+    `(let ,bindings
+       (symbol-macrolet ,(mapcar (lambda (acc)
+                                   (let* ((name (string acc))
+                                          (vec (symbolicate (subseq name 0 (position #\. name))))
+                                          (spec (subseq name (1+ (position #\. name)))))
+                                     `(,acc
+                                       (swizzle ,vec ,spec))))
+                          accessors)
+         ,@body))))
+
 
 ;;;; ----------------------------------------------------------------------------
 ;;;; * Vector Multiplication
