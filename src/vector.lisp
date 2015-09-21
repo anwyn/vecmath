@@ -310,15 +310,15 @@ with all elements initialized to zero."
 
 (defvfun vec2-sub ((a vec2) (b vec2)) vec2
   "Substract two vectors component wise."
-  (values (+ a.x b.x) (+ a.y b.y)))
+  (values (- a.x b.x) (- a.y b.y)))
 
 (defvfun vec3-sub ((a vec3) (b vec3)) vec3
   "Substract two vectors component wise."
-  (values (+ a.x b.x) (+ a.y b.y) (+ a.z b.z)))
+  (values (- a.x b.x) (- a.y b.y) (- a.z b.z)))
 
 (defvfun vec4-sub ((a vec4) (b vec4)) vec4
   "Substract two vectors component wise."
-  (values (+ a.x b.x) (+ a.y b.y) (+ a.z b.z) (+ a.w b.w)))
+  (values (- a.x b.x) (- a.y b.y) (- a.z b.z) (- a.w b.w)))
 
 
 ;;;; ----------------------------------------------------------------------------
